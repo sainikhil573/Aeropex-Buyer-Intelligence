@@ -1,0 +1,1 @@
+"""Aeropex FastAPI application package."""
