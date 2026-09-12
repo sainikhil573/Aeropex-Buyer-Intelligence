@@ -5,7 +5,7 @@ from aeropex_api.db.session import get_db_session
 from aeropex_api.main import create_app
 from aeropex_api.services.bootstrap import BUYER_DISCOVERY_AGENT_ID, bootstrap_initial_agents
 from aeropex_api.services.run_lifecycle import AgentRunService
-from aeropex_contracts.enums import TriggerType
+from aeropex_contracts.enums import ErrorSeverity, TriggerType
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -84,6 +84,19 @@ def test_run_listing_and_pagination(client: TestClient, api_session: Session) ->
     assert len(response.json()) == 2
 
 
+def test_run_listing_can_filter_by_agent(client: TestClient, api_session: Session) -> None:
+    AgentRunService(api_session).create_run(
+        agent_id=BUYER_DISCOVERY_AGENT_ID,
+        trigger_type=TriggerType.MANUAL,
+        run_id="RUN-AGENT-FILTER",
+    )
+
+    response = client.get(f"/api/v1/runs?agent_id={BUYER_DISCOVERY_AGENT_ID}")
+
+    assert response.status_code == 200
+    assert [run["run_id"] for run in response.json()] == ["RUN-AGENT-FILTER"]
+
+
 def test_run_detail_api(client: TestClient, api_session: Session) -> None:
     run = AgentRunService(api_session).create_run(agent_id=BUYER_DISCOVERY_AGENT_ID)
 
@@ -113,3 +126,52 @@ def test_run_creation_missing_agent_returns_404(client: TestClient) -> None:
     response = client.post("/api/v1/runs", json={"agent_id": "AGT-MISSING"})
 
     assert response.status_code == 404
+
+
+def test_overview_api_returns_operational_counts(client: TestClient, api_session: Session) -> None:
+    service = AgentRunService(api_session)
+    completed = service.create_run(agent_id=BUYER_DISCOVERY_AGENT_ID, run_id="RUN-OVERVIEW-OK")
+    service.mark_running(completed.run_id)
+    service.mark_completed(completed.run_id)
+    failed = service.create_run(agent_id=BUYER_DISCOVERY_AGENT_ID, run_id="RUN-OVERVIEW-FAIL")
+    service.mark_running(failed.run_id)
+    service.mark_failed(failed.run_id, error_type="simulated", message="Failure for count")
+
+    response = client.get("/api/v1/overview")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["platform_status"] == "degraded"
+    assert body["total_agents"] == 1
+    assert body["running_agents"] == 0
+    assert body["recent_runs"] == 2
+    assert body["failed_runs"] == 1
+
+
+def test_error_listing_is_bounded_and_sanitized(client: TestClient, api_session: Session) -> None:
+    service = AgentRunService(api_session)
+    for index in range(3):
+        service.create_error_event(
+            error_type="platform_failure",
+            severity=ErrorSeverity.ERROR,
+            message=f"Visible operator message {index}",
+            retryable=False,
+            resolved=False,
+        )
+
+    response = client.get("/api/v1/errors?limit=2&offset=1")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 2
+    assert set(body[0]) == {
+        "error_id",
+        "run_id",
+        "agent_id",
+        "error_type",
+        "severity",
+        "message",
+        "retryable",
+        "resolved",
+        "created_at",
+    }

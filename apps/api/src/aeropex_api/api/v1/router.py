@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+from aeropex_contracts.enums import AgentStatus, RunStatus
 from aeropex_workers.celery_app import operational_test_run_task
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -10,10 +11,12 @@ from sqlalchemy.orm import Session
 from aeropex_api.api.v1.schemas import (
     AgentResponse,
     AgentRunResponse,
+    ErrorEventResponse,
+    OverviewResponse,
     RunCreateRequest,
     RunCreateResponse,
 )
-from aeropex_api.db.models import Agent
+from aeropex_api.db.models import Agent, AgentRun, ErrorEvent
 from aeropex_api.db.session import get_db_session
 from aeropex_api.services.run_lifecycle import AgentNotFoundError, AgentRunService
 
@@ -21,6 +24,7 @@ api_router = APIRouter()
 SessionDep = Annotated[Session, Depends(get_db_session)]
 LimitQuery = Annotated[int, Query(ge=1, le=100)]
 OffsetQuery = Annotated[int, Query(ge=0)]
+AgentIdQuery = Annotated[str | None, Query(min_length=1, max_length=64)]
 
 
 @api_router.get("/health", tags=["system"])
@@ -41,13 +45,32 @@ def get_agent(agent_id: str, session: SessionDep) -> Agent:
     return agent
 
 
+@api_router.get("/overview", response_model=OverviewResponse, tags=["system"])
+def get_overview(session: SessionDep) -> OverviewResponse:
+    total_agents = session.query(Agent).count()
+    running_agents = session.query(Agent).filter(Agent.status == AgentStatus.RUNNING).count()
+    recent_runs = session.query(AgentRun).count()
+    failed_runs = session.query(AgentRun).filter(AgentRun.status == RunStatus.FAILED).count()
+    platform_status = "healthy"
+    if failed_runs:
+        platform_status = "degraded"
+    return OverviewResponse(
+        platform_status=platform_status,
+        total_agents=total_agents,
+        running_agents=running_agents,
+        recent_runs=recent_runs,
+        failed_runs=failed_runs,
+    )
+
+
 @api_router.get("/runs", response_model=list[AgentRunResponse], tags=["runs"])
 def list_runs(
     session: SessionDep,
     limit: LimitQuery = 50,
     offset: OffsetQuery = 0,
+    agent_id: AgentIdQuery = None,
 ) -> list:
-    return AgentRunService(session).list_runs(limit=limit, offset=offset)
+    return AgentRunService(session).list_runs(limit=limit, offset=offset, agent_id=agent_id)
 
 
 @api_router.get("/runs/{run_id}", response_model=AgentRunResponse, tags=["runs"])
@@ -56,6 +79,21 @@ def get_run(run_id: str, session: SessionDep) -> object:
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     return run
+
+
+@api_router.get("/errors", response_model=list[ErrorEventResponse], tags=["errors"])
+def list_errors(
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+) -> list[ErrorEvent]:
+    return (
+        session.query(ErrorEvent)
+        .order_by(ErrorEvent.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 
 @api_router.post(

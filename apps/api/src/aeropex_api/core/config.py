@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     celery_broker_url: str | None = None
     celery_result_backend: str | None = None
     enable_docs: bool = True
+    cors_allowed_origins: str = "http://localhost:3000"
 
     model_config = ConfigDict(
         env_file=".env",
@@ -30,6 +31,10 @@ class Settings(BaseSettings):
     @property
     def resolved_celery_result_backend(self) -> str:
         return self.celery_result_backend or self.redis_url or "redis://localhost:6379/0"
+
+    @property
+    def resolved_cors_allowed_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
 
 
 @lru_cache

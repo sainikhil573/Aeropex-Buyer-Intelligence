@@ -142,16 +142,19 @@ class AgentRunService:
     def get_run(self, run_id: str) -> AgentRun | None:
         return self.session.get(AgentRun, run_id)
 
-    def list_runs(self, *, limit: int = 50, offset: int = 0) -> list[AgentRun]:
+    def list_runs(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        agent_id: str | None = None,
+    ) -> list[AgentRun]:
         limit = min(max(limit, 1), 100)
         offset = max(offset, 0)
-        return (
-            self.session.query(AgentRun)
-            .order_by(AgentRun.run_id.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        query = self.session.query(AgentRun)
+        if agent_id:
+            query = query.filter(AgentRun.agent_id == agent_id)
+        return query.order_by(AgentRun.run_id.desc()).offset(offset).limit(limit).all()
 
     def create_error_event(
         self,

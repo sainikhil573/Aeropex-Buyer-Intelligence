@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from redis import Redis
 from redis.exceptions import RedisError
 from sqlalchemy import text
@@ -34,6 +35,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = app_settings
+    allowed_origins = app_settings.resolved_cors_allowed_origins
+    if allowed_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=allowed_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Content-Type"],
+        )
     app.include_router(api_router, prefix="/api/v1")
 
     @app.get("/health", tags=["system"])

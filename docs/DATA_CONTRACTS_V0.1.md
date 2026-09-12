@@ -1191,3 +1191,15 @@ Run lifecycle state changes are handled through a bounded service, with M1.2 tra
 - running -> cancelled
 
 Terminal run states remain terminal. The initial Buyer Discovery agent is registered for operational testing only; actual Buyer Discovery remains deferred.
+
+## M1.3 Control Panel Operational Dashboard
+
+Implemented the first functional Aeropex Control Panel using the existing M1.2 operational contracts:
+
+- Agent
+- AgentRun
+- ErrorEvent
+
+Added API presentation support for bounded error listing, operational summary counts, and agent-filtered run listing. No new buyer, supplier, source observation, matching, outreach, or approval contracts were introduced in this milestone.
+
+Buyer Discovery remains registered for operational testing only; actual buyer discovery and source collection remain deferred.

@@ -2,7 +2,7 @@
 
 Aeropex Buyer Intelligence is an internal, production-oriented data and operations platform for discovering, preserving, validating, and eventually acting on buyer intelligence for Aeropex Exports.
 
-Current milestone: **M1.2 Operational Persistence & Run Lifecycle**.
+Current milestone: **M1.3 Control Panel Operational Dashboard**.
 
 Buyer Discovery, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
 
@@ -15,6 +15,7 @@ Buyer Discovery, scraping/browser automation, business workflows, and AI/model i
 - Operational persistence: Agent, AgentRun, ErrorEvent, and AuditEvent.
 - Run lifecycle: queued, running, completed, completed_with_warnings, failed, and cancelled.
 - Async execution foundation: Redis and Celery with safe operational test tasks.
+- Control Panel: operational overview, agent inspection, run inspection, error visibility, and system health.
 - Data engineering direction: Azure Data Factory, ADLS Gen2, Databricks, PySpark, and Delta Lake are documented for future milestones.
 
 ## Repository Structure
@@ -76,11 +77,13 @@ Health endpoints:
 
 Operational endpoints:
 
+- `GET /api/v1/overview`
 - `GET /api/v1/agents`
 - `GET /api/v1/agents/{agent_id}`
-- `GET /api/v1/runs?limit=50&offset=0`
+- `GET /api/v1/runs?limit=50&offset=0&agent_id=AGT-BUYER-DISCOVERY-001`
 - `GET /api/v1/runs/{run_id}`
 - `POST /api/v1/runs`
+- `GET /api/v1/errors?limit=50&offset=0`
 
 `POST /api/v1/runs` queues only the safe operational test task. It does not start Buyer Discovery.
 
@@ -124,13 +127,54 @@ Unit and contract tests do not require PostgreSQL, Redis, Azure, external websit
 
 ## Start the Next.js Frontend
 
+Configure the frontend API base URL. For local development, create `apps/web/.env.local`:
+
+```powershell
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
 ```powershell
 cd apps/web
 npm install
 npm run dev
 ```
 
-The initial control panel shell includes placeholders for Overview, Agents, Buyer Intelligence, Suppliers, Sources, Approvals, Data Pipeline, and System Health.
+Open the Control Panel at:
+
+```text
+http://localhost:3000
+```
+
+Functional M1.3 pages:
+
+- `/` Overview
+- `/agents`
+- `/agents/{agentId}`
+- `/runs/{runId}`
+- `/system-health`
+
+Buyer Intelligence, Suppliers, Sources, Approvals, and Data Pipeline remain clearly labeled future-milestone placeholders.
+
+## Execute the Safe Operational Test Run
+
+1. Start PostgreSQL and Redis.
+2. Run migrations with `alembic upgrade head`.
+3. Start FastAPI.
+4. Start Celery.
+5. Start Next.js.
+6. Open `http://localhost:3000`.
+7. Click `Run Operational Test`.
+
+The button calls `POST /api/v1/runs`, queues the existing safe operational test task, and the dashboard refreshes/polls to show the real run lifecycle. It does not perform Buyer Discovery.
+
+## Frontend Validation
+
+```powershell
+cd apps/web
+npm run lint
+npm run test
+npm run build
+```
 
 ## Deferred
 
@@ -143,6 +187,20 @@ The initial control panel shell includes placeholders for Overview, Agents, Buye
 - Azure resource provisioning
 
 ## Change Log
+
+### M1.3 - Control Panel Operational Dashboard
+
+- Added a professional Next.js operations console shell with required navigation.
+- Implemented Overview, Agents, Agent Detail, Run Detail, and System Health pages.
+- Added a centralized frontend API client using `NEXT_PUBLIC_API_BASE_URL`.
+- Added status badges, loading states, empty states, API unavailable states, and manual/light polling refresh.
+- Added the `Run Operational Test` control for the existing safe operational Celery task.
+- Added bounded operational error visibility through `GET /api/v1/errors`.
+- Added a small operational summary endpoint through `GET /api/v1/overview`.
+- Added optional agent filtering to `GET /api/v1/runs`.
+- Added configurable local CORS support through `CORS_ALLOWED_ORIGINS`.
+- Added focused frontend tests for API client behavior and status rendering helpers.
+- Deferred Buyer Discovery, scraping, source crawling, auth/RBAC, WebSockets, and business-domain modules.
 
 ### M1.2 - Operational Persistence & Run Lifecycle
 

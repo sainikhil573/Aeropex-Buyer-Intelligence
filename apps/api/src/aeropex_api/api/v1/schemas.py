@@ -5,7 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from aeropex_contracts.enums import AgentStatus, AuthorityLevel, RunStatus, TriggerType
+from aeropex_contracts.enums import (
+    AgentStatus,
+    AuthorityLevel,
+    ErrorSeverity,
+    RunStatus,
+    TriggerType,
+)
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -49,6 +55,28 @@ class RunCreateRequest(BaseModel):
 
 class RunCreateResponse(AgentRunResponse):
     task_id: str | None = None
+
+
+class ErrorEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    error_id: str
+    run_id: str | None
+    agent_id: str | None
+    error_type: str
+    severity: ErrorSeverity
+    message: str
+    retryable: bool
+    resolved: bool
+    created_at: datetime
+
+
+class OverviewResponse(BaseModel):
+    platform_status: str
+    total_agents: int
+    running_agents: int
+    recent_runs: int
+    failed_runs: int
 
 
 class ReadinessCheck(BaseModel):

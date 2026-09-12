@@ -819,3 +819,28 @@ Deferred:
 - Scraping/browser automation
 - LLM/API integrations
 - RBAC/authentication
+
+## M1.3 - Control Panel Operational Dashboard
+
+Added the first functional Aeropex Control Panel for operational visibility and safe workflow control.
+
+Implemented:
+
+- Next.js operations console shell with Overview, Agents, Agent Detail, Run Detail, and System Health pages.
+- Registered agent visibility with explicit distinction between registered agents and deferred business workflow implementation.
+- Recent run visibility, run detail inspection, and lifecycle status treatment.
+- Safe `Run Operational Test` control wired to the existing M1.2 `POST /api/v1/runs` endpoint and Celery task.
+- API/readiness display for FastAPI, PostgreSQL, and Redis without exposing secrets or connection strings.
+- Bounded error visibility for operators.
+- Minimal backend support endpoints for operational summary and error listing.
+- Configurable local-development CORS.
+
+Deferred:
+
+- Actual Buyer Discovery
+- Scraping/browser automation
+- Source crawling
+- Supplier discovery
+- Verification, matching, outreach, RFQ automation
+- Authentication and RBAC
+- WebSockets and other real-time infrastructure
