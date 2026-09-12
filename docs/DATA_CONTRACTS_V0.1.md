@@ -1171,3 +1171,23 @@ Defined:
 - Technology mapping
 - Contract versioning
 - Validation strategy
+
+## M1.2 Operational Persistence & Run Lifecycle
+
+Implemented the first operational persistence subset in PostgreSQL:
+
+- Agent
+- AgentRun
+- ErrorEvent
+- AuditEvent
+
+Run lifecycle state changes are handled through a bounded service, with M1.2 transitions limited to:
+
+- queued -> running
+- queued -> cancelled
+- running -> completed
+- running -> completed_with_warnings
+- running -> failed
+- running -> cancelled
+
+Terminal run states remain terminal. The initial Buyer Discovery agent is registered for operational testing only; actual Buyer Discovery remains deferred.

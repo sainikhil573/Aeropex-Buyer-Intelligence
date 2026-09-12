@@ -3,7 +3,7 @@
 from logging.config import fileConfig
 
 from aeropex_api.core.config import get_settings
-from aeropex_api.db.base import Base
+from aeropex_api.db.base import Base, import_models
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
@@ -13,6 +13,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+import_models()
 target_metadata = Base.metadata
 
 

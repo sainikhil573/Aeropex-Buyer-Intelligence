@@ -798,3 +798,24 @@ Evidence and provenance
 Relationship history
 Human authority boundaries
 Incremental implementation strategy
+
+## M1.2 - Operational Persistence & Run Lifecycle
+
+Added the minimum operational state layer needed to create, execute, track, inspect, and audit agent runs.
+
+Implemented:
+
+- PostgreSQL persistence for Agent, AgentRun, ErrorEvent, and AuditEvent.
+- Alembic migration for operational tables, constraints, indexes, and initial Buyer Discovery agent registration.
+- AgentRun lifecycle service with safe state transitions.
+- FastAPI operational endpoints under `/api/v1`.
+- Celery safe operational execution tracking.
+- Readiness checks for configured PostgreSQL and Redis dependencies.
+
+Deferred:
+
+- Actual Buyer Discovery
+- Buyer/supplier business-domain persistence
+- Scraping/browser automation
+- LLM/API integrations
+- RBAC/authentication

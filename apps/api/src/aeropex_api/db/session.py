@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from aeropex_api.core.config import Settings, get_settings
+from aeropex_api.db.base import import_models
 
 
 def create_session_factory(settings: Settings | None = None) -> sessionmaker[Session]:
@@ -13,6 +14,7 @@ def create_session_factory(settings: Settings | None = None) -> sessionmaker[Ses
     if not app_settings.database_url:
         raise RuntimeError("DATABASE_URL must be configured before opening database sessions")
 
+    import_models()
     engine = create_engine(app_settings.database_url, pool_pre_ping=True)
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
