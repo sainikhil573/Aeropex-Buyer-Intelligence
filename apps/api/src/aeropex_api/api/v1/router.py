@@ -17,13 +17,15 @@ from aeropex_contracts.models import (
     SourceUpdate,
 )
 from aeropex_workers.celery_app import operational_test_run_task
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from aeropex_api.api.v1.schemas import (
     AgentResponse,
     AgentRunResponse,
+    ConnectorResultResponse,
+    ConnectorTestRequest,
     ErrorEventResponse,
     OverviewResponse,
     RunCreateRequest,
@@ -39,6 +41,7 @@ from aeropex_api.services.configuration import (
     ProductService,
     SourceService,
 )
+from aeropex_api.services.connectors import ConnectorExecutionService
 from aeropex_api.services.run_lifecycle import AgentNotFoundError, AgentRunService
 
 api_router = APIRouter()
@@ -136,6 +139,15 @@ def get_source(source_id: str, session: SessionDep) -> object:
     if source is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source not found")
     return source
+
+
+@api_router.post("/connectors/test", response_model=ConnectorResultResponse, tags=["connectors"])
+async def test_connector(payload: ConnectorTestRequest, request: Request, session: SessionDep) -> object:
+    return await ConnectorExecutionService(session, request.app.state.settings).execute_test(
+        source_id=payload.source_id,
+        target_url=payload.target_url,
+        run_id=payload.run_id,
+    )
 
 
 @api_router.post("/sources", response_model=SourceRead, status_code=status.HTTP_201_CREATED, tags=["sources"])

@@ -71,6 +71,14 @@ class SourceAccessMethod(StrEnum):
     MANUAL = "manual"
 
 
+class ConnectorStatus(StrEnum):
+    SUCCESS = "success"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+    BLOCKED = "blocked"
+    UNSUPPORTED = "unsupported"
+
+
 class ErrorSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"

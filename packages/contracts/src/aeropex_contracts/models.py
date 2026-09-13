@@ -4,12 +4,13 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from aeropex_contracts.enums import (
     AgentStatus,
     ApprovalStatus,
     AuthorityLevel,
+    ConnectorStatus,
     ErrorSeverity,
     RunStatus,
     SourceAccessMethod,
@@ -155,6 +156,61 @@ class SourceUpdate(ContractModel):
 class SourceRead(Source):
     created_at: datetime
     updated_at: datetime
+
+
+class ConnectorRequest(ContractModel):
+    request_id: str = Field(min_length=1, max_length=64)
+    run_id: str = Field(min_length=1, max_length=64)
+    source_id: str = Field(min_length=1, max_length=64)
+    target_url: str = Field(min_length=1, max_length=2048)
+    method: str = Field(default="GET", pattern="^GET$")
+    requested_at: datetime
+    headers: dict[str, str] = Field(default_factory=dict)
+    query_params: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("requested_at", mode="after")
+    @classmethod
+    def requested_at_must_be_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("requested_at must be timezone-aware")
+        if value.utcoffset().total_seconds() != 0:
+            raise ValueError("requested_at must be UTC")
+        return value
+
+
+class ConnectorResult(ContractModel):
+    request_id: str
+    run_id: str
+    source_id: str
+    target_url: str
+    status: ConnectorStatus
+    http_status_code: int | None = Field(default=None, ge=100, le=599)
+    content_type: str | None = None
+    retrieved_at: datetime
+    duration_ms: int = Field(ge=0)
+    attempt_count: int = Field(ge=1)
+    raw_content: str | None = None
+    error_type: str | None = None
+    error_message: str | None = None
+    content_truncated: bool = False
+
+    @field_validator("retrieved_at", mode="after")
+    @classmethod
+    def retrieved_at_must_be_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("retrieved_at must be timezone-aware")
+        if value.utcoffset().total_seconds() != 0:
+            raise ValueError("retrieved_at must be UTC")
+        return value
+
+    @model_validator(mode="after")
+    def validate_error_fields(self) -> "ConnectorResult":
+        if self.status == ConnectorStatus.SUCCESS:
+            if self.error_type is not None or self.error_message is not None:
+                raise ValueError("successful connector results must not include error fields")
+        elif self.error_type is None or self.error_message is None:
+            raise ValueError("failed connector results must include error fields")
+        return self
 
 
 class Buyer(ContractModel):

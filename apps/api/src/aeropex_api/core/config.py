@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     celery_result_backend: str | None = None
     enable_docs: bool = True
     cors_allowed_origins: str = "http://localhost:3000"
+    connector_http_timeout_seconds: float = 10.0
+    connector_http_max_attempts: int = 3
+    connector_http_max_response_bytes: int = 1048576
+    connector_http_max_redirects: int = 5
+    connector_user_agent: str = "AeropexBuyerIntelligence/0.1"
+    connector_allow_private_networks: bool = False
 
     model_config = ConfigDict(
         env_file=".env",

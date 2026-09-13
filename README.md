@@ -2,9 +2,9 @@
 
 Aeropex Buyer Intelligence is an internal, production-oriented data and operations platform for discovering, preserving, validating, and eventually acting on buyer intelligence for Aeropex Exports.
 
-Current milestone: **M2.1 Product Configuration + Source Registry**.
+Current milestone: **M2.2 Connector Abstraction + Controlled HTTP Connector**.
 
-Buyer Discovery, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
+Buyer interpretation, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
 
 ## Architecture Summary
 
@@ -14,6 +14,7 @@ Buyer Discovery, scraping/browser automation, business workflows, and AI/model i
 - Operational database: PostgreSQL through SQLAlchemy and Alembic.
 - Operational persistence: Agent, AgentRun, ErrorEvent, and AuditEvent.
 - Configuration persistence: Product and Source Registry control-plane entities.
+- Connectors: governed connector abstraction and controlled HTTP connector for approved active sources.
 - Run lifecycle: queued, running, completed, completed_with_warnings, failed, and cancelled.
 - Async execution foundation: Redis and Celery with safe operational test tasks.
 - Control Panel: operational overview, agent inspection, run inspection, error visibility, and system health.
@@ -96,8 +97,11 @@ Operational endpoints:
 - `PATCH /api/v1/sources/{source_id}`
 - `POST /api/v1/sources/{source_id}/approve`
 - `POST /api/v1/sources/{source_id}/reject`
+- `POST /api/v1/connectors/test`
 
 `POST /api/v1/runs` queues only the safe operational test task. It does not start Buyer Discovery.
+
+`POST /api/v1/connectors/test` is a bounded operational test endpoint. It accepts `source_id` and `target_url`, enforces Source Registry eligibility and URL governance, then executes only the configured connector. It is not a general URL fetch endpoint and must not be used as a proxy.
 
 ## Run Migrations
 
@@ -138,6 +142,36 @@ pytest
 ```
 
 Unit and contract tests do not require PostgreSQL, Redis, Azure, external websites, or LLM APIs.
+
+## Connector Governance
+
+M2.2 introduces the governed source-access layer that future Buyer Discovery workflows will consume.
+
+Connectors acquire source data only. Extractors will interpret source data in a later milestone. The HTTP connector does not decide whether content represents a buyer opportunity, does not call AI models, and does not write Buyer, BuyerRequirement, SourceObservation, ADLS, or Bronze records.
+
+Connector execution is allowed only when:
+
+```text
+approval_status == approved
+AND
+operational_status == active
+```
+
+Target URLs must be absolute `http` or `https` URLs and their hostname must match the Source Registry domain or a subdomain of that domain. Obvious internal/private destinations such as localhost, loopback, RFC1918 private IPs, link-local addresses, and metadata-service style IPs are rejected by default.
+
+Supported connector types:
+
+- `http`: implemented with explicit timeout, bounded retries, redirect limit, body-size limit, transparent User-Agent, status capture, and content-type capture.
+- `api`, `browser`, `manual`: intentionally unsupported by the factory until separate implementations are designed.
+
+Connector settings:
+
+- `CONNECTOR_HTTP_TIMEOUT_SECONDS`
+- `CONNECTOR_HTTP_MAX_ATTEMPTS`
+- `CONNECTOR_HTTP_MAX_RESPONSE_BYTES`
+- `CONNECTOR_HTTP_MAX_REDIRECTS`
+- `CONNECTOR_USER_AGENT`
+- `CONNECTOR_ALLOW_PRIVATE_NETWORKS`
 
 ## Start the Next.js Frontend
 
@@ -215,6 +249,16 @@ operational_status == active
 ```
 
 ## Change Log
+
+### M2.2 - Connector Abstraction + Controlled HTTP Connector
+
+- Added `ConnectorRequest`, `ConnectorResult`, and `ConnectorStatus` shared contracts.
+- Added a typed connector interface, strict `ConnectorFactory`, and controlled `HttpConnector`.
+- Added `ConnectorExecutionService` to load sources, enforce approved+active eligibility, validate governed domains, reject unsafe URL schemes and private/internal targets, execute connectors, and create final ErrorEvents.
+- Added bounded operational endpoint `POST /api/v1/connectors/test`.
+- Added configurable HTTP timeout, max attempts, response-size limit, redirect limit, User-Agent, and private-network test bypass defaulting to disabled.
+- Added deterministic unit/security/contract tests using mocked HTTP transport; no public internet dependency.
+- Deferred buyer extraction, AI interpretation, crawling, browser automation, ADLS/Bronze persistence, and discovery scheduling.
 
 ### M2.1 - Product Configuration + Source Registry
 

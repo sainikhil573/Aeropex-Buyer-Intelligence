@@ -8,6 +8,7 @@ from typing import Any
 from aeropex_contracts.enums import (
     AgentStatus,
     AuthorityLevel,
+    ConnectorStatus,
     ErrorSeverity,
     RunStatus,
     TriggerType,
@@ -55,6 +56,29 @@ class RunCreateRequest(BaseModel):
 
 class RunCreateResponse(AgentRunResponse):
     task_id: str | None = None
+
+
+class ConnectorTestRequest(BaseModel):
+    source_id: str = Field(min_length=1, max_length=64)
+    target_url: str = Field(min_length=1, max_length=2048)
+    run_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class ConnectorResultResponse(BaseModel):
+    request_id: str
+    run_id: str
+    source_id: str
+    target_url: str
+    status: ConnectorStatus
+    http_status_code: int | None
+    content_type: str | None
+    retrieved_at: datetime
+    duration_ms: int
+    attempt_count: int
+    raw_content: str | None
+    error_type: str | None
+    error_message: str | None
+    content_truncated: bool
 
 
 class ErrorEventResponse(BaseModel):

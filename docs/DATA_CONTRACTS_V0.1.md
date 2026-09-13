@@ -171,11 +171,25 @@ browser
 manual
 ```
 
-Connectors are not implemented in M2.1. The access method records governed metadata only.
+M2.2 implements the `http` connector. `api`, `browser`, and `manual` remain unsupported until separately designed.
 
 ---
 
-## 3.10 ErrorSeverity
+## 3.10 ConnectorStatus
+
+```text
+success
+failed
+timeout
+blocked
+unsupported
+```
+
+`ConnectorStatus` standardizes the result of governed source-access attempts. It describes acquisition status only, not buyer interpretation status.
+
+---
+
+## 3.11 ErrorSeverity
 
 ```text
 info
@@ -399,7 +413,103 @@ Products are platform-owned configuration entities. Product names and categories
 
 ---
 
-# 8. Buyer Contract
+# 8. Connector Contracts
+
+Connector contracts are transient source-access contracts. M2.2 allows bounded raw text content in memory for test/operational validation, but does not persist connector bodies to PostgreSQL, ADLS, or Bronze storage.
+
+## 8.1 ConnectorRequest
+
+Represents a governed request to acquire data from one configured source resource.
+
+```json
+{
+  "request_id": "REQ-20260912-000001",
+  "run_id": "RUN-20260912-000001",
+  "source_id": "SRC-0001",
+  "target_url": "https://example.com/rfq/123",
+  "method": "GET",
+  "requested_at": "2026-09-12T01:30:00Z",
+  "headers": {},
+  "query_params": {}
+}
+```
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `request_id` | string |
+| `run_id` | string |
+| `source_id` | string |
+| `target_url` | string |
+| `method` | string, currently `GET` |
+| `requested_at` | UTC datetime |
+
+Optional bounded fields:
+
+| Field | Type |
+|---|---|
+| `headers` | object[string,string] |
+| `query_params` | object[string,string] |
+
+## 8.2 ConnectorResult
+
+Represents standardized output from a connector execution.
+
+```json
+{
+  "request_id": "REQ-20260912-000001",
+  "run_id": "RUN-20260912-000001",
+  "source_id": "SRC-0001",
+  "target_url": "https://example.com/rfq/123",
+  "status": "success",
+  "http_status_code": 200,
+  "content_type": "text/html; charset=utf-8",
+  "retrieved_at": "2026-09-12T01:30:01Z",
+  "duration_ms": 312,
+  "attempt_count": 1,
+  "raw_content": "<html>...</html>",
+  "error_type": null,
+  "error_message": null,
+  "content_truncated": false
+}
+```
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `request_id` | string |
+| `run_id` | string |
+| `source_id` | string |
+| `target_url` | string |
+| `status` | ConnectorStatus |
+| `retrieved_at` | UTC datetime |
+| `duration_ms` | integer >= 0 |
+| `attempt_count` | integer >= 1 |
+| `content_truncated` | boolean |
+
+Optional fields:
+
+| Field | Type |
+|---|---|
+| `http_status_code` | integer 100-599 / null |
+| `content_type` | string / null |
+| `raw_content` | string / null |
+| `error_type` | string / null |
+| `error_message` | string / null |
+
+Rules:
+
+- `raw_content` may be null on failure.
+- `error_type` and `error_message` must be null on success.
+- Failed, timeout, blocked, and unsupported results must include error fields.
+- Oversized responses are rejected safely and represented as `connector_response_too_large`.
+- Connectors acquire data only; extractors interpret it later.
+
+---
+
+# 9. Buyer Contract
 
 Represents a normalized buyer organization.
 
@@ -446,7 +556,7 @@ Buyer creation or linking occurs during normalization and entity-resolution proc
 
 ---
 
-# 9. BuyerRequirement Contract
+# 10. BuyerRequirement Contract
 
 Represents a commercial requirement associated with a Buyer.
 
@@ -494,7 +604,7 @@ One Buyer may have multiple BuyerRequirements.
 
 ---
 
-# 10. SourceObservation Contract
+# 11. SourceObservation Contract
 
 Represents the immutable raw evidence discovered from an external source.
 
@@ -569,7 +679,7 @@ This preserves lineage.
 
 ---
 
-# 11. ErrorEvent Contract
+# 12. ErrorEvent Contract
 
 Represents a warning or failure occurring during platform execution.
 
@@ -610,7 +720,7 @@ Represents a warning or failure occurring during platform execution.
 
 ---
 
-# 12. Approval Contract
+# 13. Approval Contract
 
 Represents an action requiring human authorization.
 
@@ -653,7 +763,7 @@ This contract implements the Yellow and Red authority boundaries defined in the 
 
 ---
 
-# 13. AuditEvent Contract
+# 14. AuditEvent Contract
 
 Represents an auditable action performed by a human, service, or agent.
 
@@ -696,7 +806,7 @@ Represents an auditable action performed by a human, service, or agent.
 
 ---
 
-# 14. Core Relationship Model
+# 15. Core Relationship Model
 
 ```text
 Product
@@ -750,7 +860,7 @@ Approval
 
 ---
 
-# 15. Bronze Data Rule
+# 16. Bronze Data Rule
 
 The initial discovery flow must follow:
 
@@ -782,7 +892,7 @@ Normalization occurs downstream.
 
 ---
 
-# 16. Information Confidence Model
+# 17. Information Confidence Model
 
 The platform must distinguish three information states.
 
@@ -824,7 +934,7 @@ AI inference must never automatically become verified information.
 
 ---
 
-# 17. Null Handling
+# 18. Null Handling
 
 Unknown information must remain:
 
@@ -857,7 +967,7 @@ is valid.
 
 ---
 
-# 18. Data Lineage
+# 19. Data Lineage
 
 Every important discovery should eventually support lineage similar to:
 
@@ -897,7 +1007,7 @@ What happened afterward?
 
 ---
 
-# 19. V0.1 Contract Rules
+# 20. V0.1 Contract Rules
 
 The following rules are locked for V0.1.
 
@@ -921,7 +1031,7 @@ The following rules are locked for V0.1.
 
 ---
 
-# 20. Deferred Data Contracts
+# 21. Deferred Data Contracts
 
 The following contracts are intentionally deferred until their workflows are designed.
 
@@ -973,7 +1083,7 @@ These contracts should not be prematurely designed before their workflow require
 
 ---
 
-# 21. V0.1 Data Flow
+# 22. V0.1 Data Flow
 
 ```text
                     PRODUCT CONFIGURATION
@@ -1029,7 +1139,7 @@ These contracts should not be prematurely designed before their workflow require
 
 ---
 
-# 22. Technology Mapping
+# 23. Technology Mapping
 
 | Contract | Primary Storage / Processing |
 |---|---|
@@ -1052,7 +1162,7 @@ Exact physical implementation may evolve during detailed architecture.
 
 ---
 
-# 23. Contract Versioning
+# 24. Contract Versioning
 
 Contracts must support future evolution.
 
@@ -1076,7 +1186,7 @@ Services must not silently introduce breaking schema changes.
 
 ---
 
-# 24. Validation Strategy
+# 25. Validation Strategy
 
 Application contracts will eventually be implemented using:
 
@@ -1108,7 +1218,7 @@ Validation tests must verify:
 
 ---
 
-# 25. Next Engineering Step
+# 26. Next Engineering Step
 
 After this document is reviewed and committed:
 
@@ -1149,7 +1259,7 @@ No buyer scraping or AI-agent implementation should begin until the foundational
 
 ---
 
-# 26. Current Status
+# 27. Current Status
 
 **Requirements:** Baseline Complete  
 **Architecture:** V0.1 Baseline Defined  
@@ -1158,7 +1268,7 @@ No buyer scraping or AI-agent implementation should begin until the foundational
 
 ---
 
-# 27. Next Milestone
+# 28. Next Milestone
 
 ## Milestone M1 — Platform Foundation
 
@@ -1183,7 +1293,7 @@ Buyer Discovery will be implemented only after M1 foundation tests pass.
 
 ---
 
-# 28. Change Log
+# 29. Change Log
 
 ## V0.1
 
@@ -1255,3 +1365,13 @@ Implemented platform-owned configuration contracts and persistence for:
 Products and sources are governed control-plane data exposed through FastAPI and the Control Panel. Buyer Discovery may consume approved configuration in later milestones, but it does not own or arbitrarily mutate production product/source configuration.
 
 M2.1 explicitly does not implement source connectors, buyer scraping, browser automation, AI extraction, buyer matching, verification, outreach, ADLS ingestion, ADF, Databricks, or scheduled discovery execution.
+
+## M2.2 Connector Abstraction & Controlled HTTP Connector
+
+Implemented connector acquisition contracts:
+
+- `ConnectorRequest`
+- `ConnectorResult`
+- `ConnectorStatus`
+
+Connector execution is governed by the Source Registry and requires approved + active sources. Target URLs must match the configured source domain and pass scheme/private-network safeguards. M2.2 does not add Buyer, BuyerRequirement, SourceObservation, ADLS, Bronze, AI extraction, crawling, or browser automation behavior.

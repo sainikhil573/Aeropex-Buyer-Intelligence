@@ -8,6 +8,9 @@ from aeropex_contracts import (
     AuthorityLevel,
     Buyer,
     BuyerRequirement,
+    ConnectorRequest,
+    ConnectorResult,
+    ConnectorStatus,
     RunStatus,
     Source,
     SourceApprovalStatus,
@@ -174,3 +177,102 @@ def test_timezone_aware_datetime_required() -> None:
             created_at=datetime(2026, 9, 12, 1, 30),  # noqa: DTZ001
             updated_at=NOW,
         )
+
+
+def test_connector_request_contract_defaults_and_utc_validation() -> None:
+    request = ConnectorRequest(
+        request_id="REQ-000001",
+        run_id="RUN-000001",
+        source_id="SRC-000001",
+        target_url="https://example.com/data",
+        requested_at=NOW,
+    )
+
+    assert request.method == "GET"
+    assert request.headers == {}
+    assert request.query_params == {}
+
+    with pytest.raises(ValidationError):
+        ConnectorRequest(
+            request_id="REQ-000001",
+            run_id="RUN-000001",
+            source_id="SRC-000001",
+            target_url="https://example.com/data",
+            method="POST",
+            requested_at=NOW,
+        )
+    with pytest.raises(ValidationError):
+        ConnectorRequest(
+            request_id="REQ-000001",
+            run_id="RUN-000001",
+            source_id="SRC-000001",
+            target_url="https://example.com/data",
+            requested_at=datetime(2026, 9, 12, 1, 30),  # noqa: DTZ001
+        )
+
+
+def test_connector_result_contract_success_and_failure_rules() -> None:
+    success = ConnectorResult(
+        request_id="REQ-000001",
+        run_id="RUN-000001",
+        source_id="SRC-000001",
+        target_url="https://example.com/data",
+        status=ConnectorStatus.SUCCESS,
+        http_status_code=200,
+        content_type="text/plain",
+        retrieved_at=NOW,
+        duration_ms=12,
+        attempt_count=1,
+        raw_content="ok",
+    )
+
+    assert success.status == ConnectorStatus.SUCCESS
+    assert success.error_type is None
+
+    failed = ConnectorResult(
+        request_id="REQ-000001",
+        run_id="RUN-000001",
+        source_id="SRC-000001",
+        target_url="https://example.com/data",
+        status=ConnectorStatus.FAILED,
+        retrieved_at=NOW,
+        duration_ms=0,
+        attempt_count=1,
+        error_type="connector_http_error",
+        error_message="HTTP connector received status 404",
+    )
+
+    assert failed.http_status_code is None
+    assert failed.raw_content is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"duration_ms": -1, "attempt_count": 1},
+        {"duration_ms": 0, "attempt_count": 0},
+    ],
+)
+def test_connector_result_rejects_invalid_duration_and_attempts(payload: dict[str, int]) -> None:
+    with pytest.raises(ValidationError):
+        ConnectorResult(
+            request_id="REQ-000001",
+            run_id="RUN-000001",
+            source_id="SRC-000001",
+            target_url="https://example.com/data",
+            status=ConnectorStatus.FAILED,
+            retrieved_at=NOW,
+            error_type="connector_http_error",
+            error_message="failed",
+            **payload,
+        )
+
+
+def test_connector_status_enum_values() -> None:
+    assert {status.value for status in ConnectorStatus} == {
+        "success",
+        "failed",
+        "timeout",
+        "blocked",
+        "unsupported",
+    }

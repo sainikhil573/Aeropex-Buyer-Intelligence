@@ -876,3 +876,63 @@ Deferred:
 - Buyer matching, verification, and outreach
 - Discovery job scheduling
 - ADLS ingestion, ADF, Databricks, and Bronze observations
+
+## M2.2 - Connector Abstraction & Controlled HTTP Connector
+
+M2.2 adds the governed source-access layer that future Buyer Discovery workflows will call before extraction or interpretation occurs.
+
+Implemented:
+
+- A typed connector interface under the API service.
+- `ConnectorFactory`, which maps `SourceAccessMethod.HTTP` to `HttpConnector`.
+- Strict unsupported handling for `api`, `browser`, and `manual` source access methods.
+- `ConnectorExecutionService`, which loads the persisted Source Registry record and enforces source eligibility before execution.
+- Controlled HTTP GET retrieval with explicit timeout, bounded attempts, modest backoff, transparent User-Agent, bounded redirects, HTTP status capture, content-type capture, duration measurement, and maximum response-size rejection.
+- Standard `ConnectorResult` responses for success, failure, timeout, blocked, and unsupported outcomes.
+- Final structured `ErrorEvent` creation for meaningful connector failures.
+- Bounded operational endpoint `POST /api/v1/connectors/test`.
+
+Connector responsibility:
+
+Connectors acquire source data. They do not infer buyer intent, parse buyer requirements, call AI models, write Buyer or BuyerRequirement entities, create SourceObservation records, or persist raw bodies to ADLS/Bronze.
+
+Extractor responsibility:
+
+Extractors will interpret acquired content in later milestones. They remain separate from connectors so access controls, source governance, and interpretation logic can evolve independently.
+
+Source eligibility:
+
+```text
+approval_status == approved
+AND
+operational_status == active
+```
+
+Target URL governance:
+
+- The source must define a governed domain.
+- The target URL must use `http` or `https`.
+- The target hostname must match the source domain or a subdomain of it.
+- Mismatched domains are rejected before connector execution.
+- The API does not expose a generic URL-fetch/proxy endpoint.
+
+SSRF controls:
+
+Normal runtime configuration rejects obvious internal/private destinations, including localhost, loopback addresses, RFC1918 ranges, link-local addresses, reserved/unspecified addresses, and metadata-service style link-local IPs. `CONNECTOR_ALLOW_PRIVATE_NETWORKS` exists only for explicit controlled testing and defaults to `false`.
+
+Retry policy:
+
+The HTTP connector defaults to 3 total attempts. It retries temporary transport errors, timeouts, and HTTP `429`, `500`, `502`, `503`, and `504`. It does not retry `400`, `401`, `403`, or `404`.
+
+M2.2 non-goals:
+
+- Real Buyer Discovery
+- Buyer opportunity extraction
+- HTML buyer parsing
+- AI/LLM interpretation
+- Browser automation
+- Arbitrary crawling or link following
+- Contact enrichment
+- Buyer deduplication, matching, verification, or outreach
+- ADLS/Bronze persistence
+- Production scheduling
