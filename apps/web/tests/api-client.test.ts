@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, createOperationalTestRun, listRuns } from "../lib/api/client";
+import {
+  ApiError,
+  createOperationalTestRun,
+  getObservation,
+  getObservationReview,
+  listObservations,
+  listRuns,
+  updateObservationReview,
+} from "../lib/api/client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -55,6 +63,57 @@ describe("API client", () => {
 
     await expect(listRuns()).rejects.toEqual(
       new ApiError("Operational database unavailable", 503),
+    );
+  });
+
+  it("lists observations with review and source filters", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://api.test");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ observation_id: "OBS-1", review_status: "accepted" }],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const observations = await listObservations({
+      reviewStatus: "accepted",
+      productId: "PRD-RED-CHILLI",
+      sourceId: "SRC-1",
+      extractionStatus: "success",
+    });
+
+    expect(observations[0].review_status).toBe("accepted");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.test/api/v1/observations?limit=50&offset=0&review_status=accepted&source_id=SRC-1&product_id=PRD-RED-CHILLI&extraction_status=success",
+      expect.any(Object),
+    );
+  });
+
+  it("gets observation detail and review state", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ observation_id: "OBS-1", raw_text: "<b>raw</b>" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ observation_id: "OBS-1", status: "unreviewed" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getObservation("OBS-1")).resolves.toEqual({ observation_id: "OBS-1", raw_text: "<b>raw</b>" });
+    await expect(getObservationReview("OBS-1")).resolves.toEqual({ observation_id: "OBS-1", status: "unreviewed" });
+  });
+
+  it("patches review status and notes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ observation_id: "OBS-1", status: "needs_review", review_notes: "Check source" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updateObservationReview("OBS-1", { status: "needs_review", review_notes: "Check source" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/observations/OBS-1/review",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ status: "needs_review", review_notes: "Check source" }),
+      }),
     );
   });
 });

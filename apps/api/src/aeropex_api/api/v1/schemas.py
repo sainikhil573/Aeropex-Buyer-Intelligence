@@ -12,6 +12,7 @@ from aeropex_contracts.enums import (
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
+    ObservationReviewStatus,
     RunStatus,
     TriggerType,
 )
@@ -118,6 +119,31 @@ class SourceObservationResponse(BaseModel):
     extraction_status: ExtractionStatus
     extractor_type: str
     metadata: dict[str, Any] = Field(validation_alias="observation_metadata")
+    review_status: ObservationReviewStatus = ObservationReviewStatus.UNREVIEWED
+    review_notes: str | None = None
+    review_id: str | None = None
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    review_created_at: datetime | None = None
+    review_updated_at: datetime | None = None
+
+
+class ObservationReviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    review_id: str | None
+    observation_id: str
+    status: ObservationReviewStatus
+    review_notes: str | None
+    reviewed_by: str | None
+    reviewed_at: datetime | None
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class UpdateObservationReviewRequest(BaseModel):
+    status: ObservationReviewStatus
+    review_notes: str | None = Field(default=None, max_length=10_000)
 
 
 class ErrorEventResponse(BaseModel):
@@ -140,6 +166,10 @@ class OverviewResponse(BaseModel):
     running_agents: int
     recent_runs: int
     failed_runs: int
+    unreviewed_observations: int = 0
+    needs_review_observations: int = 0
+    accepted_observations: int = 0
+    rejected_observations: int = 0
 
 
 class ReadinessCheck(BaseModel):

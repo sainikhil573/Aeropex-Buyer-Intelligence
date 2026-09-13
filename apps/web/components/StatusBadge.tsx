@@ -10,9 +10,9 @@ export function statusLabel(status: StatusKind) {
 }
 
 export function statusTone(status: StatusKind) {
-  if (["completed", "active", "ready", "healthy", "info", "approved", "eligible"].includes(status)) return "good";
-  if (["running", "queued", "idle", "manual", "warning", "candidate"].includes(status)) return "notice";
-  if (["completed_with_warnings", "degraded"].includes(status)) return "warn";
+  if (["completed", "active", "ready", "healthy", "info", "approved", "eligible", "success"].includes(status)) return "good";
+  if (["running", "queued", "idle", "manual", "warning", "candidate", "accepted"].includes(status)) return "notice";
+  if (["completed_with_warnings", "degraded", "needs_review", "partial", "unstructured"].includes(status)) return "warn";
   if (["failed", "critical", "error", "unavailable", "not_ready", "disabled", "rejected"].includes(status)) {
     return "bad";
   }

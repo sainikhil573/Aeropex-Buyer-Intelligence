@@ -8,6 +8,7 @@ from aeropex_contracts.enums import (
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
+    ObservationReviewStatus,
     RunStatus,
     SourceAccessMethod,
     SourceApprovalStatus,
@@ -27,6 +28,7 @@ from aeropex_contracts.models import (
     ErrorEvent,
     ExtractionRequest,
     ExtractionResult,
+    ObservationReview,
     Product,
     ProductContext,
     ProductCreate,
@@ -37,6 +39,7 @@ from aeropex_contracts.models import (
     SourceObservation,
     SourceRead,
     SourceUpdate,
+    UpdateObservationReviewRequest,
 )
 
 __all__ = [
@@ -58,6 +61,8 @@ __all__ = [
     "ExtractionRequest",
     "ExtractionResult",
     "ExtractionStatus",
+    "ObservationReview",
+    "ObservationReviewStatus",
     "Product",
     "ProductContext",
     "ProductCreate",
@@ -73,5 +78,6 @@ __all__ = [
     "SourceRead",
     "SourceUpdate",
     "TriggerType",
+    "UpdateObservationReviewRequest",
     "VerificationStatus",
 ]

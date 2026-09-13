@@ -15,4 +15,16 @@ describe("status helpers", () => {
     expect(statusTone("queued")).toBe("notice");
     expect(statusTone("running")).toBe("notice");
   });
+
+  it("uses review language without presenting accepted as verified", () => {
+    expect(statusLabel("needs_review")).toBe("Needs Review");
+    expect(statusTone("accepted")).toBe("notice");
+    expect(statusTone("rejected")).toBe("bad");
+  });
+
+  it("maps extraction states for observation review", () => {
+    expect(statusTone("success")).toBe("good");
+    expect(statusTone("partial")).toBe("warn");
+    expect(statusTone("unstructured")).toBe("warn");
+  });
 });

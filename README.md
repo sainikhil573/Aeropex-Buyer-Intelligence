@@ -2,9 +2,9 @@
 
 Aeropex Buyer Intelligence is an internal, production-oriented data and operations platform for discovering, preserving, validating, and eventually acting on buyer intelligence for Aeropex Exports.
 
-Current milestone: **M2.3 Extraction + SourceObservation + Evidence Capture**.
+Current milestone: **M2.4 Buyer Intelligence UI + Observation Review Workflow**.
 
-Bounded deterministic extraction for controlled JSON records is implemented. Buyer verification, entity resolution, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
+Bounded deterministic extraction for controlled JSON records is implemented, and persisted SourceObservations can be reviewed in the Control Panel. Buyer verification, entity resolution, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
 
 ## Architecture Summary
 
@@ -16,6 +16,7 @@ Bounded deterministic extraction for controlled JSON records is implemented. Buy
 - Configuration persistence: Product and Source Registry control-plane entities.
 - Connectors: governed connector abstraction and controlled HTTP connector for approved active sources.
 - Extraction: bounded deterministic extractor layer that creates immutable SourceObservation evidence from successful ConnectorResult payloads.
+- Observation Review: mutable review workflow metadata for SourceObservation records without changing evidence or creating canonical buyer entities.
 - Run lifecycle: queued, running, completed, completed_with_warnings, failed, and cancelled.
 - Async execution foundation: Redis and Celery with safe operational test tasks.
 - Control Panel: operational overview, agent inspection, run inspection, error visibility, and system health.
@@ -102,6 +103,8 @@ Operational endpoints:
 - `POST /api/v1/extractions/test`
 - `GET /api/v1/observations?limit=50&offset=0`
 - `GET /api/v1/observations/{observation_id}`
+- `GET /api/v1/observations/{observation_id}/review`
+- `PATCH /api/v1/observations/{observation_id}/review`
 
 `POST /api/v1/runs` queues only the safe operational test task. It does not start Buyer Discovery.
 
@@ -124,6 +127,8 @@ AGT-BUYER-DISCOVERY-001
 The M2.1 migration adds Product and Source Registry tables and seeds idempotent configuration examples. Seeded products intentionally do not fabricate HS codes.
 
 The M2.3 migration adds append-only `source_observations` evidence persistence for extracted candidate observations.
+
+The M2.4 migration adds one active `observation_reviews` workflow row per observation.
 
 To verify downgrade and upgrade locally:
 
@@ -195,6 +200,18 @@ Product matching uses exact case-insensitive comparison against active Product n
 
 `SourceObservation` records are operational evidence/provenance records. They are append-only from the API perspective: create via extraction, read by ID, and list with bounded pagination/filtering. There are no update or delete observation endpoints.
 
+## Observation Review Workflow
+
+M2.4 adds a human review workflow over SourceObservation evidence:
+
+```text
+SourceObservation -> Buyer Intelligence Inbox -> Open Observation -> Review Evidence -> Save Review
+```
+
+Review statuses are `unreviewed`, `needs_review`, `accepted`, and `rejected`. Review state is stored separately in `ObservationReview`; it is mutable workflow metadata, while SourceObservation evidence remains unchanged. `accepted` is not verified, and `rejected` is not deleted.
+
+Each review mutation records an `AuditEvent` with before and after review state. The local V0.1 actor placeholder is `local-admin` until full authentication/RBAC exists.
+
 ## Start the Next.js Frontend
 
 Configure the frontend API base URL. For local development, create `apps/web/.env.local`:
@@ -224,8 +241,10 @@ Functional M2.1 pages:
 - `/sources`
 - `/runs/{runId}`
 - `/system-health`
+- `/buyer-intelligence`
+- `/buyer-intelligence/{observationId}`
 
-Buyer Intelligence, Suppliers, Approvals, and Data Pipeline remain clearly labeled future-milestone placeholders.
+Suppliers, Approvals, and Data Pipeline remain clearly labeled future-milestone placeholders.
 
 ## Execute the Safe Operational Test Run
 
@@ -271,6 +290,17 @@ operational_status == active
 ```
 
 ## Change Log
+
+### M2.4 - Buyer Intelligence UI + Observation Review Workflow
+
+- Added `ObservationReviewStatus`, `ObservationReview`, and `UpdateObservationReviewRequest` contracts.
+- Added Alembic migration `20260912_0004_m2_4_observation_reviews`.
+- Added `ObservationReviewService` for current/default review state, review updates, notes, audit events, and review counts.
+- Added review API endpoints and review metadata on observation list/detail responses.
+- Added review-status filtering for observation lists without N+1 review lookups.
+- Implemented `/buyer-intelligence` as an operations inbox and `/buyer-intelligence/{observationId}` as a review detail page with read-only raw evidence.
+- Added Overview review metrics.
+- Deferred canonical Buyer/BuyerRequirement creation, verification, entity resolution, enrichment, matching, outreach, AI/Astra, and new connectors.
 
 ### M2.3 - Extraction + SourceObservation + Evidence Capture
 

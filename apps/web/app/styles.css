@@ -253,7 +253,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   background: #ffffff;
   border: 1px solid #cfd8e3;
   border-radius: 6px;
@@ -266,6 +267,11 @@ select {
 input:disabled {
   background: #f2f5f8;
   color: #647287;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
 }
 
 .formActions {
@@ -290,6 +296,56 @@ input:disabled {
   font-size: 0.78rem;
   margin-top: 3px;
   overflow-wrap: anywhere;
+}
+
+.clampedCell {
+  max-width: 320px;
+  overflow-wrap: anywhere;
+}
+
+.reviewPanel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.dataList {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+  margin: 0;
+}
+
+.dataList dt,
+.dataList dd {
+  border-bottom: 1px solid #edf1f5;
+  margin: 0;
+  padding: 12px 16px;
+}
+
+.dataList dt {
+  color: #5b6878;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.dataList dd {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.evidenceBox {
+  background: #111827;
+  border-radius: 0 0 8px 8px;
+  color: #eef2f7;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding: 16px;
+  white-space: pre-wrap;
 }
 
 table {
@@ -392,7 +448,8 @@ th {
 
   .metricGrid,
   .detailGrid,
-  .formGrid {
+  .formGrid,
+  .dataList {
     grid-template-columns: 1fr;
   }
 }

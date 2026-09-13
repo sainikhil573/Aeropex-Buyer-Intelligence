@@ -14,6 +14,7 @@ from aeropex_contracts.enums import (
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
+    ObservationReviewStatus,
     RunStatus,
     SourceAccessMethod,
     SourceApprovalStatus,
@@ -330,6 +331,22 @@ class SourceObservation(ContractModel):
     extraction_status: ExtractionStatus | None = None
     extractor_type: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ObservationReview(ContractModel):
+    review_id: str
+    observation_id: str
+    status: ObservationReviewStatus
+    created_at: datetime
+    updated_at: datetime
+    review_notes: str | None = None
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+
+
+class UpdateObservationReviewRequest(ContractModel):
+    status: ObservationReviewStatus
+    review_notes: str | None = None
 
 
 class ErrorEvent(ContractModel):

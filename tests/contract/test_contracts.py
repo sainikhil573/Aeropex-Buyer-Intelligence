@@ -15,6 +15,8 @@ from aeropex_contracts import (
     ExtractionRequest,
     ExtractionResult,
     ExtractionStatus,
+    ObservationReview,
+    ObservationReviewStatus,
     ProductContext,
     RunStatus,
     Source,
@@ -354,3 +356,24 @@ def test_source_observation_allows_pre_resolution_null_links_and_extracted_field
     assert observation.buyer_id is None
     assert observation.requirement_id is None
     assert observation.metadata == {}
+
+
+def test_observation_review_contracts_are_workflow_metadata() -> None:
+    review = ObservationReview(
+        review_id="REV-000001",
+        observation_id="OBS-000001",
+        status=ObservationReviewStatus.ACCEPTED,
+        review_notes="Useful for later verification.",
+        reviewed_by="local-admin",
+        reviewed_at=NOW,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+    assert review.status == ObservationReviewStatus.ACCEPTED
+    assert {status.value for status in ObservationReviewStatus} == {
+        "unreviewed",
+        "needs_review",
+        "accepted",
+        "rejected",
+    }

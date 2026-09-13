@@ -6,7 +6,17 @@ from aeropex_api.db.models.operational import (
     AgentRun,
     AuditEvent,
     ErrorEvent,
+    ObservationReview,
     SourceObservation,
 )
 
-__all__ = ["Agent", "AgentRun", "AuditEvent", "ErrorEvent", "Product", "Source", "SourceObservation"]
+__all__ = [
+    "Agent",
+    "AgentRun",
+    "AuditEvent",
+    "ErrorEvent",
+    "ObservationReview",
+    "Product",
+    "Source",
+    "SourceObservation",
+]

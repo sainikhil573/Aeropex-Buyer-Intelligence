@@ -117,6 +117,10 @@ export default function OverviewPage() {
         />
         <Metric label="Recent Runs" value={formatNumber(state.overview?.recent_runs)} />
         <Metric label="Failed Runs" value={formatNumber(state.overview?.failed_runs)} />
+        <Metric label="Unreviewed Observations" value={formatNumber(state.overview?.unreviewed_observations)} />
+        <Metric label="Needs Review" value={formatNumber(state.overview?.needs_review_observations)} />
+        <Metric label="Accepted Observations" value={formatNumber(state.overview?.accepted_observations)} />
+        <Metric label="Rejected Observations" value={formatNumber(state.overview?.rejected_observations)} />
       </section>
 
       <section className="panel">

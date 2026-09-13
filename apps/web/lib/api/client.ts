@@ -12,8 +12,13 @@ import type {
   Source,
   SourceApprovalStatus,
   SourceCreate,
+  SourceObservation,
   SourceOperationalStatus,
   SourceUpdate,
+  ExtractionStatus,
+  ObservationReview,
+  ObservationReviewStatus,
+  UpdateObservationReview,
 } from "./types";
 
 export class ApiError extends Error {
@@ -178,5 +183,41 @@ export function approveSource(sourceId: string) {
 export function rejectSource(sourceId: string) {
   return request<Source>(`/api/v1/sources/${encodeURIComponent(sourceId)}/reject`, {
     method: "POST",
+  });
+}
+
+export function listObservations(
+  options: {
+    limit?: number;
+    offset?: number;
+    reviewStatus?: ObservationReviewStatus;
+    sourceId?: string;
+    productId?: string;
+    extractionStatus?: ExtractionStatus;
+  } = {},
+) {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 50),
+    offset: String(options.offset ?? 0),
+  });
+  if (options.reviewStatus) params.set("review_status", options.reviewStatus);
+  if (options.sourceId) params.set("source_id", options.sourceId);
+  if (options.productId) params.set("product_id", options.productId);
+  if (options.extractionStatus) params.set("extraction_status", options.extractionStatus);
+  return request<SourceObservation[]>(`/api/v1/observations?${params}`);
+}
+
+export function getObservation(observationId: string) {
+  return request<SourceObservation>(`/api/v1/observations/${encodeURIComponent(observationId)}`);
+}
+
+export function getObservationReview(observationId: string) {
+  return request<ObservationReview>(`/api/v1/observations/${encodeURIComponent(observationId)}/review`);
+}
+
+export function updateObservationReview(observationId: string, payload: UpdateObservationReview) {
+  return request<ObservationReview>(`/api/v1/observations/${encodeURIComponent(observationId)}/review`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }

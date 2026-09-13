@@ -12,9 +12,9 @@ from aeropex_contracts.models import (
     ExtractionResult,
     ProductContext,
 )
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from aeropex_api.db.models import AgentRun, Product, Source, SourceObservation
+from aeropex_api.db.models import AgentRun, ObservationReview, Product, Source, SourceObservation
 from aeropex_api.extractors.factory import ExtractorFactory
 from aeropex_api.services.run_lifecycle import AgentRunService, make_id, utc_now
 
@@ -96,8 +96,9 @@ class ExtractionService:
         run_id: str | None = None,
         product_id: str | None = None,
         extraction_status: ExtractionStatus | None = None,
+        review_status: object | None = None,
     ) -> list[SourceObservation]:
-        query = self.session.query(SourceObservation)
+        query = self.session.query(SourceObservation).options(joinedload(SourceObservation.review))
         if source_id:
             query = query.filter(SourceObservation.source_id == source_id)
         if run_id:
@@ -106,6 +107,16 @@ class ExtractionService:
             query = query.filter(SourceObservation.product_id == product_id)
         if extraction_status:
             query = query.filter(SourceObservation.extraction_status == extraction_status)
+        if review_status:
+            from aeropex_contracts.enums import ObservationReviewStatus
+
+            if review_status == ObservationReviewStatus.UNREVIEWED:
+                query = query.outerjoin(ObservationReview).filter(
+                    (ObservationReview.review_id.is_(None))
+                    | (ObservationReview.status == ObservationReviewStatus.UNREVIEWED)
+                )
+            else:
+                query = query.join(ObservationReview).filter(ObservationReview.status == review_status)
         return (
             query.order_by(SourceObservation.captured_at.desc(), SourceObservation.observation_id.desc())
             .offset(max(offset, 0))

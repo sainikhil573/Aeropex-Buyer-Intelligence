@@ -986,3 +986,45 @@ M2.3 non-goals:
 - Browser automation
 - ADLS/Bronze persistence
 - Production scheduling
+
+## M2.4 - Buyer Intelligence UI + Observation Review Workflow
+
+M2.4 adds the first usable Buyer Intelligence review experience in the Control Panel.
+
+Implemented:
+
+- PostgreSQL persistence for one active `ObservationReview` per SourceObservation.
+- Review statuses: `unreviewed`, `needs_review`, `accepted`, and `rejected`.
+- Bounded review service that preserves SourceObservation evidence, updates review metadata, and writes AuditEvent records.
+- Review API endpoints under `/api/v1/observations/{observation_id}/review`.
+- Observation list/detail API responses with current review state and review-status filtering.
+- Buyer Intelligence inbox at `/buyer-intelligence`.
+- Observation review detail page at `/buyer-intelligence/{observationId}` with extracted fields, source metadata, and read-only raw evidence.
+- Overview metrics for unreviewed, needs-review, accepted, and rejected observations.
+
+Architecture responsibility:
+
+```text
+SourceObservation
+    immutable observed evidence
+
+ObservationReview
+    mutable operator workflow metadata
+
+Buyer / BuyerRequirement
+    deferred canonical entities
+```
+
+Accepted observations are not verified buyers. Rejected observations are not deleted. Review decisions only decide whether an observation should progress to later entity-resolution and verification stages.
+
+Deferred:
+
+- Canonical Buyer creation
+- BuyerRequirement creation
+- Entity resolution and deduplication
+- Buyer and contact verification
+- Contact enrichment
+- Buyer-supplier matching
+- Outreach or RFQ workflows
+- AI/Astra/LLM usage
+- New connectors or extractors

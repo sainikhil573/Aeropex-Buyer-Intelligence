@@ -12,6 +12,9 @@ export type ErrorSeverity = "info" | "warning" | "error" | "critical";
 export type SourceApprovalStatus = "candidate" | "approved" | "rejected";
 export type SourceOperationalStatus = "active" | "degraded" | "disabled" | "unavailable";
 export type SourceAccessMethod = "api" | "http" | "browser" | "manual";
+export type ExtractionStatus = "success" | "partial" | "unstructured" | "failed";
+export type EvidenceType = "page_text" | "listing" | "directory_entry" | "api_record" | "manual_entry" | "unknown";
+export type ObservationReviewStatus = "unreviewed" | "needs_review" | "accepted" | "rejected";
 
 export type Agent = {
   agent_id: string;
@@ -62,6 +65,10 @@ export type Overview = {
   running_agents: number;
   recent_runs: number;
   failed_runs: number;
+  unreviewed_observations: number;
+  needs_review_observations: number;
+  accepted_observations: number;
+  rejected_observations: number;
 };
 
 export type HealthResponse = {
@@ -134,3 +141,53 @@ export type SourceCreate = {
 };
 
 export type SourceUpdate = Partial<Omit<SourceCreate, "source_id">>;
+
+export type SourceObservation = {
+  observation_id: string;
+  source_id: string;
+  run_id: string;
+  source_url: string | null;
+  captured_at: string;
+  raw_text: string | null;
+  evidence_type: EvidenceType;
+  confidence_score: number | null;
+  buyer_id: string | null;
+  requirement_id: string | null;
+  product_id: string | null;
+  company_name: string | null;
+  country: string | null;
+  requirement_text: string | null;
+  quantity: number | null;
+  unit: string | null;
+  specifications: Record<string, unknown>;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  posted_at: string | null;
+  extraction_status: ExtractionStatus;
+  extractor_type: string;
+  metadata: Record<string, unknown>;
+  review_status: ObservationReviewStatus;
+  review_notes: string | null;
+  review_id: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_created_at: string | null;
+  review_updated_at: string | null;
+};
+
+export type ObservationReview = {
+  review_id: string | null;
+  observation_id: string;
+  status: ObservationReviewStatus;
+  review_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type UpdateObservationReview = {
+  status: ObservationReviewStatus;
+  review_notes?: string | null;
+};

@@ -11,6 +11,7 @@ from aeropex_contracts.enums import (
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
+    ObservationReviewStatus,
     RunStatus,
     TriggerType,
 )
@@ -195,6 +196,35 @@ class SourceObservation(Base):
     )
     extractor_type: Mapped[str] = mapped_column(String(100), nullable=False)
     observation_metadata: Mapped[dict[str, Any]] = mapped_column(json_type, nullable=False, default=dict)
+    review: Mapped[ObservationReview | None] = relationship(back_populates="observation")
+
+
+class ObservationReview(Base):
+    __tablename__ = "observation_reviews"
+    __table_args__ = (
+        Index("ix_observation_reviews_status_updated", "status", "updated_at"),
+    )
+
+    review_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    observation_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("source_observations.observation_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    status: Mapped[ObservationReviewStatus] = mapped_column(
+        Enum(ObservationReviewStatus, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        index=True,
+    )
+    review_notes: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(String(100))
+    reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    observation: Mapped[SourceObservation] = relationship(back_populates="review")
 
 
 class AuditEvent(Base):

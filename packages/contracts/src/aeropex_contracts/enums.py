@@ -86,6 +86,13 @@ class ExtractionStatus(StrEnum):
     FAILED = "failed"
 
 
+class ObservationReviewStatus(StrEnum):
+    UNREVIEWED = "unreviewed"
+    NEEDS_REVIEW = "needs_review"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
 class EvidenceType(StrEnum):
     PAGE_TEXT = "page_text"
     LISTING = "listing"

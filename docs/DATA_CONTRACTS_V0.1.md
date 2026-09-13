@@ -217,7 +217,20 @@ unknown
 
 ---
 
-## 3.13 ErrorSeverity
+## 3.13 ObservationReviewStatus
+
+```text
+unreviewed
+needs_review
+accepted
+rejected
+```
+
+`ObservationReviewStatus` is mutable workflow metadata for human review of SourceObservation records. `accepted` means useful enough for later processing, not verified. `rejected` means do not progress further, not delete evidence.
+
+---
+
+## 3.14 ErrorSeverity
 
 ```text
 info
@@ -811,7 +824,55 @@ This preserves lineage.
 
 ---
 
-# 12. ErrorEvent Contract
+# 13. ObservationReview Contract
+
+Represents the current human review state for one SourceObservation.
+
+`ObservationReview` is operational workflow metadata. It must not copy raw evidence, and it must not create or imply a canonical Buyer or BuyerRequirement.
+
+## Example
+
+```json
+{
+  "review_id": "REV-000001",
+  "observation_id": "OBS-000001",
+  "status": "accepted",
+  "review_notes": "Relevant red chilli requirement. Keep for next-stage verification.",
+  "reviewed_by": "local-admin",
+  "reviewed_at": "2026-09-12T02:00:00Z",
+  "created_at": "2026-09-12T02:00:00Z",
+  "updated_at": "2026-09-12T02:00:00Z"
+}
+```
+
+## Required Fields
+
+| Field | Type |
+|---|---|
+| `review_id` | string |
+| `observation_id` | string |
+| `status` | ObservationReviewStatus |
+| `created_at` | datetime |
+| `updated_at` | datetime |
+
+## Optional Fields
+
+| Field | Type |
+|---|---|
+| `review_notes` | string / null |
+| `reviewed_by` | string / null |
+| `reviewed_at` | datetime / null |
+
+Rules:
+
+- One active review state exists per SourceObservation.
+- Missing review state is normalized as `unreviewed`.
+- Review mutations must create AuditEvent entries with before and after state.
+- SourceObservation evidence remains immutable regardless of review status.
+
+---
+
+# 14. ErrorEvent Contract
 
 Represents a warning or failure occurring during platform execution.
 
@@ -852,7 +913,7 @@ Represents a warning or failure occurring during platform execution.
 
 ---
 
-# 13. Approval Contract
+# 15. Approval Contract
 
 Represents an action requiring human authorization.
 
@@ -895,7 +956,7 @@ This contract implements the Yellow and Red authority boundaries defined in the 
 
 ---
 
-# 14. AuditEvent Contract
+# 16. AuditEvent Contract
 
 Represents an auditable action performed by a human, service, or agent.
 
@@ -938,7 +999,7 @@ Represents an auditable action performed by a human, service, or agent.
 
 ---
 
-# 15. Core Relationship Model
+# 17. Core Relationship Model
 
 ```text
 Product
@@ -954,6 +1015,8 @@ AgentRun
    |
    v
 SourceObservation
+   |
+   +---- ObservationReview
    |
    | Normalization / Entity Resolution
    |
@@ -992,7 +1055,7 @@ Approval
 
 ---
 
-# 16. Bronze Data Rule
+# 18. Bronze Data Rule
 
 The initial discovery flow must follow:
 
@@ -1024,7 +1087,7 @@ Normalization occurs downstream.
 
 ---
 
-# 17. Information Confidence Model
+# 19. Information Confidence Model
 
 The platform must distinguish three information states.
 
@@ -1066,7 +1129,7 @@ AI inference must never automatically become verified information.
 
 ---
 
-# 18. Null Handling
+# 20. Null Handling
 
 Unknown information must remain:
 
@@ -1099,7 +1162,7 @@ is valid.
 
 ---
 
-# 19. Data Lineage
+# 21. Data Lineage
 
 Every important discovery should eventually support lineage similar to:
 
@@ -1139,7 +1202,7 @@ What happened afterward?
 
 ---
 
-# 20. V0.1 Contract Rules
+# 22. V0.1 Contract Rules
 
 The following rules are locked for V0.1.
 
@@ -1160,10 +1223,12 @@ The following rules are locked for V0.1.
 15. SourceObservation precedes normalized Buyer creation.
 16. Entity resolution occurs downstream.
 17. Data-quality failures must not silently destroy evidence.
+18. Review state is mutable workflow metadata separate from immutable evidence.
+19. Accepted observations are not verified buyers.
 
 ---
 
-# 21. Deferred Data Contracts
+# 23. Deferred Data Contracts
 
 The following contracts are intentionally deferred until their workflows are designed.
 
@@ -1215,7 +1280,7 @@ These contracts should not be prematurely designed before their workflow require
 
 ---
 
-# 22. V0.1 Data Flow
+# 24. V0.1 Data Flow
 
 ```text
                     PRODUCT CONFIGURATION
@@ -1271,7 +1336,7 @@ These contracts should not be prematurely designed before their workflow require
 
 ---
 
-# 23. Technology Mapping
+# 25. Technology Mapping
 
 | Contract | Primary Storage / Processing |
 |---|---|
@@ -1280,6 +1345,7 @@ These contracts should not be prematurely designed before their workflow require
 | Source | PostgreSQL |
 | Product | PostgreSQL |
 | SourceObservation metadata | PostgreSQL |
+| ObservationReview | PostgreSQL |
 | Raw SourceObservation evidence | ADLS Gen2 Bronze |
 | Buyer | PostgreSQL / Curated Data Layer |
 | BuyerRequirement | PostgreSQL / Curated Data Layer |
@@ -1294,7 +1360,7 @@ Exact physical implementation may evolve during detailed architecture.
 
 ---
 
-# 24. Contract Versioning
+# 26. Contract Versioning
 
 Contracts must support future evolution.
 
@@ -1318,7 +1384,7 @@ Services must not silently introduce breaking schema changes.
 
 ---
 
-# 25. Validation Strategy
+# 27. Validation Strategy
 
 Application contracts will eventually be implemented using:
 
@@ -1350,7 +1416,7 @@ Validation tests must verify:
 
 ---
 
-# 26. Next Engineering Step
+# 28. Next Engineering Step
 
 After this document is reviewed and committed:
 
@@ -1391,7 +1457,7 @@ No buyer scraping or AI-agent implementation should begin until the foundational
 
 ---
 
-# 27. Current Status
+# 29. Current Status
 
 **Requirements:** Baseline Complete  
 **Architecture:** V0.1 Baseline Defined  
@@ -1400,7 +1466,7 @@ No buyer scraping or AI-agent implementation should begin until the foundational
 
 ---
 
-# 28. Next Milestone
+# 30. Next Milestone
 
 ## Milestone M1 — Platform Foundation
 
@@ -1425,7 +1491,7 @@ Buyer Discovery will be implemented only after M1 foundation tests pass.
 
 ---
 
-# 29. Change Log
+# 31. Change Log
 
 ## V0.1
 
@@ -1522,3 +1588,15 @@ Implemented bounded extraction and evidence persistence contracts:
 M2.3 uses deterministic controlled JSON extraction only. It preserves raw evidence, leaves unknown fields null, and creates append-only SourceObservation records with nullable `buyer_id` and `requirement_id`.
 
 M2.3 explicitly does not perform buyer verification, contact enrichment, Buyer or BuyerRequirement creation, entity resolution, matching, outreach, AI extraction, generic HTML scraping, browser automation, ADLS/Bronze writes, or production scheduling.
+
+## M2.4 Buyer Intelligence UI + Observation Review Workflow
+
+Implemented review workflow contracts:
+
+- `ObservationReviewStatus`
+- `ObservationReview`
+- `UpdateObservationReviewRequest`
+
+Observation review state is mutable operational metadata stored separately from immutable SourceObservation evidence. Accepted observations are approved for later processing only and must not be presented as verified buyers. Rejected observations are not deleted.
+
+M2.4 explicitly does not perform Buyer or BuyerRequirement creation, entity resolution, deduplication, buyer verification, contact enrichment, matching, outreach, AI/Astra usage, new connectors, or new extractors.

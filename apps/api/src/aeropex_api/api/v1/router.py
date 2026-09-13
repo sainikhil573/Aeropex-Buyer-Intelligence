@@ -6,6 +6,7 @@ from aeropex_contracts.enums import (
     AgentStatus,
     ConnectorStatus,
     ExtractionStatus,
+    ObservationReviewStatus,
     RunStatus,
     SourceApprovalStatus,
     SourceOperationalStatus,
@@ -31,12 +32,14 @@ from aeropex_api.api.v1.schemas import (
     ConnectorTestRequest,
     ErrorEventResponse,
     ExtractionTestRequest,
+    ObservationReviewResponse,
     OverviewResponse,
     RunCreateRequest,
     RunCreateResponse,
     SourceObservationResponse,
+    UpdateObservationReviewRequest,
 )
-from aeropex_api.db.models import Agent, AgentRun, ErrorEvent, Source
+from aeropex_api.db.models import Agent, AgentRun, ErrorEvent, Source, SourceObservation
 from aeropex_api.db.session import get_db_session
 from aeropex_api.services.configuration import (
     ConfigurationError,
@@ -48,6 +51,10 @@ from aeropex_api.services.configuration import (
 )
 from aeropex_api.services.connectors import ConnectorExecutionService
 from aeropex_api.services.extraction import ExtractionService
+from aeropex_api.services.observation_review import (
+    ObservationNotFoundError,
+    ObservationReviewService,
+)
 from aeropex_api.services.run_lifecycle import AgentNotFoundError, AgentRunService, make_id, utc_now
 
 api_router = APIRouter()
@@ -55,6 +62,33 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 LimitQuery = Annotated[int, Query(ge=1, le=100)]
 OffsetQuery = Annotated[int, Query(ge=0)]
 AgentIdQuery = Annotated[str | None, Query(min_length=1, max_length=64)]
+
+
+def _observation_response(observation: SourceObservation) -> SourceObservationResponse:
+    response = SourceObservationResponse.model_validate(observation, from_attributes=True)
+    review = observation.review
+    if review is None:
+        return response
+    return response.model_copy(
+        update={
+            "review_status": review.status,
+            "review_notes": review.review_notes,
+            "review_id": review.review_id,
+            "reviewed_by": review.reviewed_by,
+            "reviewed_at": review.reviewed_at,
+            "review_created_at": review.created_at,
+            "review_updated_at": review.updated_at,
+        }
+    )
+
+
+def _review_response(service: ObservationReviewService, observation_id: str) -> ObservationReviewResponse:
+    review = service.get_review(observation_id)
+    if review is None:
+        if service.session.get(SourceObservation, observation_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found")
+        return ObservationReviewResponse(**service.default_review_state(observation_id))
+    return ObservationReviewResponse.model_validate(review, from_attributes=True)
 
 
 def _configuration_error_to_http(exc: ConfigurationError) -> HTTPException:
@@ -193,15 +227,18 @@ def list_observations(
     run_id: str | None = None,
     product_id: str | None = None,
     extraction_status: ExtractionStatus | None = None,
-) -> list:
-    return ExtractionService(session).list_observations(
+    review_status: ObservationReviewStatus | None = None,
+) -> list[SourceObservationResponse]:
+    observations = ExtractionService(session).list_observations(
         limit=limit,
         offset=offset,
         source_id=source_id,
         run_id=run_id,
         product_id=product_id,
         extraction_status=extraction_status,
+        review_status=review_status,
     )
+    return [_observation_response(observation) for observation in observations]
 
 
 @api_router.get(
@@ -209,11 +246,42 @@ def list_observations(
     response_model=SourceObservationResponse,
     tags=["observations"],
 )
-def get_observation(observation_id: str, session: SessionDep) -> object:
+def get_observation(observation_id: str, session: SessionDep) -> SourceObservationResponse:
     observation = ExtractionService(session).get_observation(observation_id)
     if observation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found")
-    return observation
+    return _observation_response(observation)
+
+
+@api_router.get(
+    "/observations/{observation_id}/review",
+    response_model=ObservationReviewResponse,
+    tags=["observations"],
+)
+def get_observation_review(observation_id: str, session: SessionDep) -> ObservationReviewResponse:
+    return _review_response(ObservationReviewService(session), observation_id)
+
+
+@api_router.patch(
+    "/observations/{observation_id}/review",
+    response_model=ObservationReviewResponse,
+    tags=["observations"],
+)
+def update_observation_review(
+    observation_id: str,
+    payload: UpdateObservationReviewRequest,
+    session: SessionDep,
+) -> ObservationReviewResponse:
+    service = ObservationReviewService(session)
+    try:
+        review = service.update_review(
+            observation_id,
+            status=payload.status,
+            review_notes=payload.review_notes,
+        )
+    except ObservationNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found") from exc
+    return ObservationReviewResponse.model_validate(review, from_attributes=True)
 
 
 @api_router.post("/sources", response_model=SourceRead, status_code=status.HTTP_201_CREATED, tags=["sources"])
@@ -266,6 +334,7 @@ def get_overview(session: SessionDep) -> OverviewResponse:
     running_agents = session.query(Agent).filter(Agent.status == AgentStatus.RUNNING).count()
     recent_runs = session.query(AgentRun).count()
     failed_runs = session.query(AgentRun).filter(AgentRun.status == RunStatus.FAILED).count()
+    review_counts = ObservationReviewService(session).review_counts()
     platform_status = "healthy"
     if failed_runs:
         platform_status = "degraded"
@@ -275,6 +344,10 @@ def get_overview(session: SessionDep) -> OverviewResponse:
         running_agents=running_agents,
         recent_runs=recent_runs,
         failed_runs=failed_runs,
+        unreviewed_observations=review_counts[ObservationReviewStatus.UNREVIEWED.value],
+        needs_review_observations=review_counts[ObservationReviewStatus.NEEDS_REVIEW.value],
+        accepted_observations=review_counts[ObservationReviewStatus.ACCEPTED.value],
+        rejected_observations=review_counts[ObservationReviewStatus.REJECTED.value],
     )
 
 
