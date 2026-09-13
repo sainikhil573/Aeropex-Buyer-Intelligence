@@ -10,6 +10,8 @@ from aeropex_contracts.enums import (
     AuthorityLevel,
     ConnectorStatus,
     ErrorSeverity,
+    EvidenceType,
+    ExtractionStatus,
     RunStatus,
     TriggerType,
 )
@@ -79,6 +81,43 @@ class ConnectorResultResponse(BaseModel):
     error_type: str | None
     error_message: str | None
     content_truncated: bool
+
+
+class ExtractionTestRequest(BaseModel):
+    source_id: str = Field(min_length=1, max_length=64)
+    run_id: str | None = Field(default=None, min_length=1, max_length=64)
+    target_url: str = Field(default="https://controlled-fixture.local/record", min_length=1, max_length=2048)
+    content_type: str = "application/json"
+    raw_content: str = Field(min_length=1, max_length=200_000)
+
+
+class SourceObservationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    observation_id: str
+    source_id: str
+    run_id: str
+    source_url: str | None
+    captured_at: datetime
+    raw_text: str | None
+    evidence_type: EvidenceType
+    confidence_score: float | None
+    buyer_id: str | None
+    requirement_id: str | None
+    product_id: str | None
+    company_name: str | None
+    country: str | None
+    requirement_text: str | None
+    quantity: float | None
+    unit: str | None
+    specifications: dict[str, Any]
+    contact_name: str | None
+    contact_email: str | None
+    contact_phone: str | None
+    posted_at: datetime | None
+    extraction_status: ExtractionStatus
+    extractor_type: str
+    metadata: dict[str, Any] = Field(validation_alias="observation_metadata")
 
 
 class ErrorEventResponse(BaseModel):

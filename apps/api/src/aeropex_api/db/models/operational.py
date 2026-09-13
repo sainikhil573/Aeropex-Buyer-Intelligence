@@ -9,6 +9,8 @@ from aeropex_contracts.enums import (
     AgentStatus,
     AuthorityLevel,
     ErrorSeverity,
+    EvidenceType,
+    ExtractionStatus,
     RunStatus,
     TriggerType,
 )
@@ -17,6 +19,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -144,6 +147,54 @@ class ErrorEvent(Base):
 
     run: Mapped[AgentRun | None] = relationship(back_populates="errors")
     agent: Mapped[Agent | None] = relationship(back_populates="errors")
+
+
+class SourceObservation(Base):
+    __tablename__ = "source_observations"
+    __table_args__ = (
+        CheckConstraint(
+            "confidence_score IS NULL OR (confidence_score >= 0 AND confidence_score <= 1)",
+            name="ck_source_observations_confidence_score_range",
+        ),
+        Index("ix_source_observations_source_captured", "source_id", "captured_at"),
+        Index("ix_source_observations_run_captured", "run_id", "captured_at"),
+        Index("ix_source_observations_product_status", "product_id", "extraction_status"),
+    )
+
+    observation_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("sources.source_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_url: Mapped[str | None] = mapped_column(String(2048))
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, index=True)
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    evidence_type: Mapped[EvidenceType] = mapped_column(
+        Enum(EvidenceType, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        default=EvidenceType.UNKNOWN,
+    )
+    confidence_score: Mapped[float | None] = mapped_column(Float)
+    buyer_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    requirement_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    product_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    company_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    country: Mapped[str | None] = mapped_column(String(100), index=True)
+    requirement_text: Mapped[str | None] = mapped_column(Text)
+    quantity: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(50))
+    specifications: Mapped[dict[str, Any]] = mapped_column(json_type, nullable=False, default=dict)
+    contact_name: Mapped[str | None] = mapped_column(String(255))
+    contact_email: Mapped[str | None] = mapped_column(String(320))
+    contact_phone: Mapped[str | None] = mapped_column(String(100))
+    posted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    extraction_status: Mapped[ExtractionStatus] = mapped_column(
+        Enum(ExtractionStatus, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        index=True,
+    )
+    extractor_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    observation_metadata: Mapped[dict[str, Any]] = mapped_column(json_type, nullable=False, default=dict)
 
 
 class AuditEvent(Base):

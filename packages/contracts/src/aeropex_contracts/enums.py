@@ -79,6 +79,22 @@ class ConnectorStatus(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
+class ExtractionStatus(StrEnum):
+    SUCCESS = "success"
+    PARTIAL = "partial"
+    UNSTRUCTURED = "unstructured"
+    FAILED = "failed"
+
+
+class EvidenceType(StrEnum):
+    PAGE_TEXT = "page_text"
+    LISTING = "listing"
+    DIRECTORY_ENTRY = "directory_entry"
+    API_RECORD = "api_record"
+    MANUAL_ENTRY = "manual_entry"
+    UNKNOWN = "unknown"
+
+
 class ErrorSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"

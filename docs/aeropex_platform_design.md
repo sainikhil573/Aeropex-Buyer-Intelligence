@@ -936,3 +936,53 @@ M2.2 non-goals:
 - Buyer deduplication, matching, verification, or outreach
 - ADLS/Bronze persistence
 - Production scheduling
+
+## M2.3 - Extraction + SourceObservation + Evidence Capture
+
+M2.3 adds the first bounded interpretation layer after governed connector acquisition.
+
+Implemented:
+
+- Typed extraction contracts: `ProductContext`, `ExtractionRequest`, `ExtractionResult`, `ExtractionStatus`, and `EvidenceType`.
+- Extractor boundary under the API service so connectors acquire content and extractors interpret content.
+- `ExtractorFactory` with deterministic `StructuredJsonExtractor` for controlled JSON records.
+- `ExtractionService` that accepts successful `ConnectorResult` payloads, builds extraction requests, resolves extractors, validates results, persists SourceObservation evidence, and creates one meaningful ErrorEvent for failed extraction results.
+- PostgreSQL persistence for append-only SourceObservation evidence through Alembic migration `20260912_0003_m2_3_source_observations`.
+- Read-only observation endpoints: `GET /api/v1/observations` and `GET /api/v1/observations/{observation_id}`.
+- Bounded controlled fixture endpoint `POST /api/v1/extractions/test`, which does not fetch external data.
+- Deterministic product matching against active Product names, aliases, and variants only.
+
+Architecture responsibility:
+
+```text
+CONNECTOR
+    acquires source data
+
+EXTRACTOR
+    interprets source content into structured candidate observations
+
+VERIFICATION
+    later determines whether the company/contact/opportunity is trustworthy
+```
+
+SourceObservation responsibility:
+
+SourceObservation is evidence/provenance data. It may exist with `buyer_id = null` and `requirement_id = null` before entity resolution. It is not automatically a Buyer or BuyerRequirement.
+
+Extraction confidence:
+
+M2.3 does not introduce a legitimacy confidence model. The deterministic JSON extractor may set extraction confidence only when enough explicit structured fields are present in the controlled fixture. This must not be interpreted as company verification.
+
+M2.3 non-goals:
+
+- Buyer legitimacy verification
+- Contact or company enrichment
+- Buyer/BuyerRequirement creation
+- Buyer deduplication or entity resolution
+- Buyer-supplier matching
+- Outreach or email
+- Semantic AI/LLM extraction
+- Generic HTML scraping
+- Browser automation
+- ADLS/Bronze persistence
+- Production scheduling

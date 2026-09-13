@@ -189,7 +189,35 @@ unsupported
 
 ---
 
-## 3.11 ErrorSeverity
+## 3.11 ExtractionStatus
+
+```text
+success
+partial
+unstructured
+failed
+```
+
+`ExtractionStatus` describes deterministic extraction outcome only. It does not describe company legitimacy, buyer verification, or opportunity quality.
+
+---
+
+## 3.12 EvidenceType
+
+```text
+page_text
+listing
+directory_entry
+api_record
+manual_entry
+unknown
+```
+
+`EvidenceType` classifies the observed source evidence shape. It is extensible and should not be used as a verification signal.
+
+---
+
+## 3.13 ErrorSeverity
 
 ```text
 info
@@ -505,11 +533,78 @@ Rules:
 - `error_type` and `error_message` must be null on success.
 - Failed, timeout, blocked, and unsupported results must include error fields.
 - Oversized responses are rejected safely and represented as `connector_response_too_large`.
-- Connectors acquire data only; extractors interpret it later.
+- Connectors acquire data only; extractors interpret successful connector results.
 
 ---
 
-# 9. Buyer Contract
+# 9. Extraction Contracts
+
+Extraction contracts are transient interpretation contracts. They convert bounded source content into candidate observation fields without creating canonical Buyer or BuyerRequirement entities.
+
+## 9.1 ProductContext
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `product_id` | string |
+| `name` | string |
+
+Optional fields:
+
+| Field | Type |
+|---|---|
+| `aliases` | array[string] |
+| `variants` | array[string] |
+
+## 9.2 ExtractionRequest
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `request_id` | string |
+| `run_id` | string |
+| `source_id` | string |
+| `source_url` | string |
+| `captured_at` | UTC datetime |
+
+Optional fields:
+
+| Field | Type |
+|---|---|
+| `content_type` | string / null |
+| `raw_content` | string / null |
+| `product_context` | array[ProductContext] |
+| `source_type` | string / null |
+
+## 9.3 ExtractionResult
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `request_id` | string |
+| `run_id` | string |
+| `source_id` | string |
+| `source_url` | string |
+| `status` | ExtractionStatus |
+| `evidence_type` | EvidenceType |
+| `extractor_type` | string |
+
+Optional fields include extracted company, country, product, requirement, quantity, unit, specifications, contact fields, `posted_at`, `confidence_score`, `raw_text`, `error_type`, and `error_message`.
+
+Rules:
+
+- Missing values remain null or empty.
+- `confidence_score` may remain null; if present, it is extraction confidence only.
+- `product_id` is set only by deterministic exact matching against configured active product names, aliases, or variants.
+- Ambiguous product matches leave `product_id` null.
+- Extraction does not perform verification, enrichment, entity resolution, or outreach.
+
+---
+
+# 10. Buyer Contract
 
 Represents a normalized buyer organization.
 
@@ -556,7 +651,7 @@ Buyer creation or linking occurs during normalization and entity-resolution proc
 
 ---
 
-# 10. BuyerRequirement Contract
+# 11. BuyerRequirement Contract
 
 Represents a commercial requirement associated with a Buyer.
 
@@ -604,7 +699,7 @@ One Buyer may have multiple BuyerRequirements.
 
 ---
 
-# 11. SourceObservation Contract
+# 12. SourceObservation Contract
 
 Represents the immutable raw evidence discovered from an external source.
 
@@ -623,9 +718,26 @@ The SourceObservation preserves what the system actually observed before normali
   "requirement_id": null,
   "source_url": "https://example.com/rfq/123",
   "raw_text": "Looking to import dried red chilli...",
-  "evidence_type": "public_rfq",
+  "evidence_type": "api_record",
   "captured_at": "2026-09-12T01:02:14Z",
-  "confidence_score": 0.87
+  "confidence_score": null,
+  "product_id": "PRD-RED-CHILLI",
+  "company_name": "ABC Foods LLC",
+  "country": null,
+  "requirement_text": "Looking to import dried red chilli...",
+  "quantity": null,
+  "unit": null,
+  "specifications": {},
+  "contact_name": null,
+  "contact_email": null,
+  "contact_phone": null,
+  "posted_at": null,
+  "extraction_status": "partial",
+  "extractor_type": "structured_json",
+  "metadata": {
+    "request_id": "REQ-20260912-000001",
+    "product_name": "Red Chilli"
+  }
 }
 ```
 
@@ -637,6 +749,9 @@ The SourceObservation preserves what the system actually observed before normali
 | `source_id` | string |
 | `run_id` | string |
 | `captured_at` | datetime |
+| `evidence_type` | EvidenceType |
+| `extraction_status` | ExtractionStatus |
+| `extractor_type` | string |
 
 ## Optional Fields
 
@@ -648,6 +763,23 @@ The SourceObservation preserves what the system actually observed before normali
 | `raw_text` | string / null |
 | `evidence_type` | string / null |
 | `confidence_score` | decimal 0.0–1.0 / null |
+
+| `product_id` | string / null |
+| `company_name` | string / null |
+| `country` | string / null |
+| `requirement_text` | string / null |
+| `quantity` | decimal / null |
+| `unit` | string / null |
+| `specifications` | object |
+| `contact_name` | string / null |
+| `contact_email` | string / null |
+| `contact_phone` | string / null |
+| `posted_at` | datetime / null |
+| `metadata` | object |
+
+M2.3 implementation note:
+
+`buyer_id` and `requirement_id` are intentionally nullable because SourceObservation may exist before entity resolution. SourceObservation is evidence/provenance data, not automatically the canonical Buyer entity.
 
 ## Immutability Rule
 
@@ -1375,3 +1507,18 @@ Implemented connector acquisition contracts:
 - `ConnectorStatus`
 
 Connector execution is governed by the Source Registry and requires approved + active sources. Target URLs must match the configured source domain and pass scheme/private-network safeguards. M2.2 does not add Buyer, BuyerRequirement, SourceObservation, ADLS, Bronze, AI extraction, crawling, or browser automation behavior.
+
+## M2.3 Extraction + SourceObservation + Evidence Capture
+
+Implemented bounded extraction and evidence persistence contracts:
+
+- `ProductContext`
+- `ExtractionRequest`
+- `ExtractionResult`
+- `ExtractionStatus`
+- `EvidenceType`
+- Expanded `SourceObservation`
+
+M2.3 uses deterministic controlled JSON extraction only. It preserves raw evidence, leaves unknown fields null, and creates append-only SourceObservation records with nullable `buyer_id` and `requirement_id`.
+
+M2.3 explicitly does not perform buyer verification, contact enrichment, Buyer or BuyerRequirement creation, entity resolution, matching, outreach, AI extraction, generic HTML scraping, browser automation, ADLS/Bronze writes, or production scheduling.

@@ -11,6 +11,11 @@ from aeropex_contracts import (
     ConnectorRequest,
     ConnectorResult,
     ConnectorStatus,
+    EvidenceType,
+    ExtractionRequest,
+    ExtractionResult,
+    ExtractionStatus,
+    ProductContext,
     RunStatus,
     Source,
     SourceApprovalStatus,
@@ -276,3 +281,76 @@ def test_connector_status_enum_values() -> None:
         "blocked",
         "unsupported",
     }
+
+
+def test_extraction_contracts_and_status_values() -> None:
+    request = ExtractionRequest(
+        request_id="REQ-000001",
+        run_id="RUN-000001",
+        source_id="SRC-000001",
+        source_url="https://example.com/data",
+        content_type="application/json",
+        raw_content='{"company_name": "ABC Foods LLC"}',
+        product_context=[
+            ProductContext(
+                product_id="PRD-RED-CHILLI",
+                name="Red Chilli",
+                aliases=["chilli"],
+                variants=["flakes"],
+            )
+        ],
+        captured_at=NOW,
+    )
+    result = ExtractionResult(
+        request_id=request.request_id,
+        run_id=request.run_id,
+        source_id=request.source_id,
+        source_url=request.source_url,
+        status=ExtractionStatus.PARTIAL,
+        company_name="ABC Foods LLC",
+        confidence_score=None,
+        evidence_type=EvidenceType.API_RECORD,
+        raw_text=request.raw_content,
+        extractor_type="structured_json",
+    )
+
+    assert request.product_context[0].product_id == "PRD-RED-CHILLI"
+    assert result.status == ExtractionStatus.PARTIAL
+    assert {status.value for status in ExtractionStatus} == {
+        "success",
+        "partial",
+        "unstructured",
+        "failed",
+    }
+    assert {evidence.value for evidence in EvidenceType} >= {"api_record", "unknown"}
+
+
+def test_extraction_request_requires_utc_captured_at() -> None:
+    with pytest.raises(ValidationError):
+        ExtractionRequest(
+            request_id="REQ-000001",
+            run_id="RUN-000001",
+            source_id="SRC-000001",
+            source_url="https://example.com/data",
+            captured_at=datetime(2026, 9, 12, 1, 30),  # noqa: DTZ001
+        )
+
+
+def test_source_observation_allows_pre_resolution_null_links_and_extracted_fields() -> None:
+    observation = SourceObservation(
+        observation_id="OBS-000001",
+        source_id="SRC-0001",
+        run_id="RUN-000001",
+        captured_at=NOW,
+        source_url="https://example.com/data",
+        raw_text="raw evidence",
+        evidence_type=EvidenceType.API_RECORD,
+        product_id="PRD-RED-CHILLI",
+        company_name="ABC Foods LLC",
+        extraction_status=ExtractionStatus.PARTIAL,
+        extractor_type="structured_json",
+    )
+
+    assert observation.buyer_id is None
+    assert observation.requirement_id is None
+    assert observation.metadata == {}

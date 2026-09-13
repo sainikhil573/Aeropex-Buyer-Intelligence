@@ -2,9 +2,9 @@
 
 Aeropex Buyer Intelligence is an internal, production-oriented data and operations platform for discovering, preserving, validating, and eventually acting on buyer intelligence for Aeropex Exports.
 
-Current milestone: **M2.2 Connector Abstraction + Controlled HTTP Connector**.
+Current milestone: **M2.3 Extraction + SourceObservation + Evidence Capture**.
 
-Buyer interpretation, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
+Bounded deterministic extraction for controlled JSON records is implemented. Buyer verification, entity resolution, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
 
 ## Architecture Summary
 
@@ -15,6 +15,7 @@ Buyer interpretation, scraping/browser automation, business workflows, and AI/mo
 - Operational persistence: Agent, AgentRun, ErrorEvent, and AuditEvent.
 - Configuration persistence: Product and Source Registry control-plane entities.
 - Connectors: governed connector abstraction and controlled HTTP connector for approved active sources.
+- Extraction: bounded deterministic extractor layer that creates immutable SourceObservation evidence from successful ConnectorResult payloads.
 - Run lifecycle: queued, running, completed, completed_with_warnings, failed, and cancelled.
 - Async execution foundation: Redis and Celery with safe operational test tasks.
 - Control Panel: operational overview, agent inspection, run inspection, error visibility, and system health.
@@ -98,10 +99,15 @@ Operational endpoints:
 - `POST /api/v1/sources/{source_id}/approve`
 - `POST /api/v1/sources/{source_id}/reject`
 - `POST /api/v1/connectors/test`
+- `POST /api/v1/extractions/test`
+- `GET /api/v1/observations?limit=50&offset=0`
+- `GET /api/v1/observations/{observation_id}`
 
 `POST /api/v1/runs` queues only the safe operational test task. It does not start Buyer Discovery.
 
 `POST /api/v1/connectors/test` is a bounded operational test endpoint. It accepts `source_id` and `target_url`, enforces Source Registry eligibility and URL governance, then executes only the configured connector. It is not a general URL fetch endpoint and must not be used as a proxy.
+
+`POST /api/v1/extractions/test` is a bounded controlled-fixture endpoint. It accepts a configured `source_id`, optional `run_id`, optional `target_url`, `content_type`, and controlled `raw_content`; it does not fetch external data. It exists to validate ConnectorResult -> Extractor -> SourceObservation wiring without public internet, crawling, or AI.
 
 ## Run Migrations
 
@@ -116,6 +122,8 @@ AGT-BUYER-DISCOVERY-001
 ```
 
 The M2.1 migration adds Product and Source Registry tables and seeds idempotent configuration examples. Seeded products intentionally do not fabricate HS codes.
+
+The M2.3 migration adds append-only `source_observations` evidence persistence for extracted candidate observations.
 
 To verify downgrade and upgrade locally:
 
@@ -147,7 +155,7 @@ Unit and contract tests do not require PostgreSQL, Redis, Azure, external websit
 
 M2.2 introduces the governed source-access layer that future Buyer Discovery workflows will consume.
 
-Connectors acquire source data only. Extractors will interpret source data in a later milestone. The HTTP connector does not decide whether content represents a buyer opportunity, does not call AI models, and does not write Buyer, BuyerRequirement, SourceObservation, ADLS, or Bronze records.
+Connectors acquire source data only. Extractors interpret successful connector results in a separate bounded layer. The HTTP connector does not decide whether content represents a buyer opportunity, does not call AI models, and does not write Buyer, BuyerRequirement, SourceObservation, ADLS, or Bronze records.
 
 Connector execution is allowed only when:
 
@@ -172,6 +180,20 @@ Connector settings:
 - `CONNECTOR_HTTP_MAX_REDIRECTS`
 - `CONNECTOR_USER_AGENT`
 - `CONNECTOR_ALLOW_PRIVATE_NETWORKS`
+
+## Evidence-First Extraction
+
+M2.3 introduces the first interpretation step after source acquisition:
+
+```text
+ConnectorResult -> Extractor -> ExtractionResult -> SourceObservation
+```
+
+The extraction layer is bounded and deterministic. It currently supports controlled JSON records through `StructuredJsonExtractor`; unsupported content is preserved as unstructured evidence instead of crashing the platform. Missing fields remain null, and extraction does not create `Buyer` or `BuyerRequirement` entities.
+
+Product matching uses exact case-insensitive comparison against active Product names, aliases, and variants. Ambiguous or missing product matches leave `product_id` null while preserving the raw product text in observation metadata.
+
+`SourceObservation` records are operational evidence/provenance records. They are append-only from the API perspective: create via extraction, read by ID, and list with bounded pagination/filtering. There are no update or delete observation endpoints.
 
 ## Start the Next.js Frontend
 
@@ -249,6 +271,17 @@ operational_status == active
 ```
 
 ## Change Log
+
+### M2.3 - Extraction + SourceObservation + Evidence Capture
+
+- Added `ExtractionRequest`, `ExtractionResult`, `ProductContext`, `ExtractionStatus`, and `EvidenceType` shared contracts.
+- Added typed extractor interface, `ExtractorFactory`, and deterministic `StructuredJsonExtractor`.
+- Added `ExtractionService` to accept successful ConnectorResult payloads, perform deterministic extraction, create immutable SourceObservation rows, and reuse ErrorEvent for failed extraction results.
+- Added Alembic migration `20260912_0003_m2_3_source_observations`.
+- Added read/list observation endpoints and bounded controlled endpoint `POST /api/v1/extractions/test`.
+- Added deterministic product matching against active product names, aliases, and variants only.
+- Added unit and contract tests for null preservation, no fabricated values, product matching, unsupported/malformed payloads, observation persistence, API listing/reading, and failed connector skip behavior.
+- Deferred verification, entity resolution, Buyer/BuyerRequirement creation, enrichment, matching, outreach, generic HTML scraping, browser automation, and AI extraction.
 
 ### M2.2 - Connector Abstraction + Controlled HTTP Connector
 

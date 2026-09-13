@@ -4,11 +4,14 @@ from typing import Annotated
 
 from aeropex_contracts.enums import (
     AgentStatus,
+    ConnectorStatus,
+    ExtractionStatus,
     RunStatus,
     SourceApprovalStatus,
     SourceOperationalStatus,
 )
 from aeropex_contracts.models import (
+    ConnectorResult,
     ProductCreate,
     ProductRead,
     ProductUpdate,
@@ -27,11 +30,13 @@ from aeropex_api.api.v1.schemas import (
     ConnectorResultResponse,
     ConnectorTestRequest,
     ErrorEventResponse,
+    ExtractionTestRequest,
     OverviewResponse,
     RunCreateRequest,
     RunCreateResponse,
+    SourceObservationResponse,
 )
-from aeropex_api.db.models import Agent, AgentRun, ErrorEvent
+from aeropex_api.db.models import Agent, AgentRun, ErrorEvent, Source
 from aeropex_api.db.session import get_db_session
 from aeropex_api.services.configuration import (
     ConfigurationError,
@@ -42,7 +47,8 @@ from aeropex_api.services.configuration import (
     SourceService,
 )
 from aeropex_api.services.connectors import ConnectorExecutionService
-from aeropex_api.services.run_lifecycle import AgentNotFoundError, AgentRunService
+from aeropex_api.services.extraction import ExtractionService
+from aeropex_api.services.run_lifecycle import AgentNotFoundError, AgentRunService, make_id, utc_now
 
 api_router = APIRouter()
 SessionDep = Annotated[Session, Depends(get_db_session)]
@@ -148,6 +154,66 @@ async def test_connector(payload: ConnectorTestRequest, request: Request, sessio
         target_url=payload.target_url,
         run_id=payload.run_id,
     )
+
+
+@api_router.post(
+    "/extractions/test",
+    response_model=SourceObservationResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["extractions"],
+)
+def test_extraction(payload: ExtractionTestRequest, session: SessionDep) -> object:
+    if session.get(Source, payload.source_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source not found")
+    connector_result = ConnectorResult(
+        request_id=make_id("REQ"),
+        run_id=payload.run_id or make_id("RUN"),
+        source_id=payload.source_id,
+        target_url=payload.target_url,
+        status=ConnectorStatus.SUCCESS,
+        http_status_code=200,
+        content_type=payload.content_type,
+        retrieved_at=utc_now(),
+        duration_ms=0,
+        attempt_count=1,
+        raw_content=payload.raw_content,
+    )
+    observation = ExtractionService(session).extract_from_connector_result(connector_result)
+    if observation is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Extraction was skipped")
+    return observation
+
+
+@api_router.get("/observations", response_model=list[SourceObservationResponse], tags=["observations"])
+def list_observations(
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+    source_id: str | None = None,
+    run_id: str | None = None,
+    product_id: str | None = None,
+    extraction_status: ExtractionStatus | None = None,
+) -> list:
+    return ExtractionService(session).list_observations(
+        limit=limit,
+        offset=offset,
+        source_id=source_id,
+        run_id=run_id,
+        product_id=product_id,
+        extraction_status=extraction_status,
+    )
+
+
+@api_router.get(
+    "/observations/{observation_id}",
+    response_model=SourceObservationResponse,
+    tags=["observations"],
+)
+def get_observation(observation_id: str, session: SessionDep) -> object:
+    observation = ExtractionService(session).get_observation(observation_id)
+    if observation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found")
+    return observation
 
 
 @api_router.post("/sources", response_model=SourceRead, status_code=status.HTTP_201_CREATED, tags=["sources"])

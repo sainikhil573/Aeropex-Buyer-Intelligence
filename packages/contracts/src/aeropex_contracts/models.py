@@ -12,6 +12,8 @@ from aeropex_contracts.enums import (
     AuthorityLevel,
     ConnectorStatus,
     ErrorSeverity,
+    EvidenceType,
+    ExtractionStatus,
     RunStatus,
     SourceAccessMethod,
     SourceApprovalStatus,
@@ -213,6 +215,71 @@ class ConnectorResult(ContractModel):
         return self
 
 
+class ProductContext(ContractModel):
+    product_id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=255)
+    aliases: list[str] = Field(default_factory=list)
+    variants: list[str] = Field(default_factory=list)
+
+
+class ExtractionRequest(ContractModel):
+    request_id: str = Field(min_length=1, max_length=64)
+    run_id: str = Field(min_length=1, max_length=64)
+    source_id: str = Field(min_length=1, max_length=64)
+    source_url: str = Field(min_length=1, max_length=2048)
+    content_type: str | None = None
+    raw_content: str | None = None
+    product_context: list[ProductContext] = Field(default_factory=list)
+    captured_at: datetime
+    source_type: str | None = None
+
+    @field_validator("captured_at", mode="after")
+    @classmethod
+    def captured_at_must_be_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("captured_at must be timezone-aware")
+        if value.utcoffset().total_seconds() != 0:
+            raise ValueError("captured_at must be UTC")
+        return value
+
+
+class ExtractionResult(ContractModel):
+    request_id: str
+    run_id: str
+    source_id: str
+    source_url: str
+    status: ExtractionStatus
+    company_name: str | None = None
+    country: str | None = None
+    product_name: str | None = None
+    product_id: str | None = None
+    requirement_text: str | None = None
+    quantity: Decimal | None = None
+    unit: str | None = None
+    specifications: dict[str, Any] = Field(default_factory=dict)
+    contact_name: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    posted_at: datetime | None = None
+    confidence_score: Score | None = Field(default=None, ge=0, le=1)
+    evidence_type: EvidenceType = EvidenceType.UNKNOWN
+    raw_text: str | None = None
+    extractor_type: str
+    error_type: str | None = None
+    error_message: str | None = None
+
+    @field_validator("posted_at", mode="after")
+    @classmethod
+    def posted_at_must_be_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("posted_at must be timezone-aware")
+        if value.utcoffset().total_seconds() != 0:
+            raise ValueError("posted_at must be UTC")
+        return value
+
+
 class Buyer(ContractModel):
     buyer_id: str
     company_name: str
@@ -247,8 +314,22 @@ class SourceObservation(ContractModel):
     requirement_id: str | None = None
     source_url: AnyUrl | None = None
     raw_text: str | None = None
-    evidence_type: str | None = None
+    evidence_type: EvidenceType | None = None
     confidence_score: Score | None = Field(default=None, ge=0, le=1)
+    product_id: str | None = None
+    company_name: str | None = None
+    country: str | None = None
+    requirement_text: str | None = None
+    quantity: Decimal | None = None
+    unit: str | None = None
+    specifications: dict[str, Any] = Field(default_factory=dict)
+    contact_name: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    posted_at: datetime | None = None
+    extraction_status: ExtractionStatus | None = None
+    extractor_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ErrorEvent(ContractModel):
