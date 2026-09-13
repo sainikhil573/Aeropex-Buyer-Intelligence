@@ -12,6 +12,8 @@ from aeropex_contracts.enums import (
     AuthorityLevel,
     BuyerRequirementStatus,
     ConnectorStatus,
+    ContactType,
+    EnrichmentStatus,
     EntityResolutionStatus,
     ErrorSeverity,
     EvidenceType,
@@ -22,7 +24,9 @@ from aeropex_contracts.enums import (
     SourceApprovalStatus,
     SourceOperationalStatus,
     TriggerType,
+    VerificationClaimType,
     VerificationStatus,
+    VerificationType,
 )
 
 
@@ -310,6 +314,71 @@ class BuyerRequirement(ContractModel):
     specifications: dict[str, Any] = Field(default_factory=dict)
     destination: str | None = None
     posted_at: datetime | None = None
+
+
+class VerificationResult(ContractModel):
+    verification_id: str
+    buyer_id: str
+    status: VerificationStatus
+    verification_type: VerificationType
+    created_at: datetime
+    updated_at: datetime
+    summary: str | None = None
+    confidence_score: Score | None = Field(default=None, ge=0, le=1)
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    risk_flags: dict[str, Any] = Field(default_factory=dict)
+    checks: dict[str, Any] = Field(default_factory=dict)
+
+
+class VerificationEvidence(ContractModel):
+    evidence_id: str
+    verification_id: str
+    buyer_id: str
+    source_type: str
+    evidence_text: str
+    captured_at: datetime
+    claim_type: VerificationClaimType
+    source_url: AnyUrl | None = None
+    claim_value: str | None = None
+    supports_claim: bool | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class Contact(ContractModel):
+    contact_id: str
+    buyer_id: str
+    contact_type: ContactType
+    verification_status: VerificationStatus
+    created_at: datetime
+    updated_at: datetime
+    name: str | None = None
+    email: str | None = None
+    normalized_email: str | None = None
+    phone: str | None = None
+    normalized_phone: str | None = None
+    title: str | None = None
+    department: str | None = None
+    source_observation_id: str | None = None
+
+
+class EnrichmentResult(ContractModel):
+    enrichment_id: str
+    buyer_id: str
+    field_name: str
+    field_value: str
+    source_type: str
+    captured_at: datetime
+    status: EnrichmentStatus
+    created_at: datetime
+    contact_id: str | None = None
+    source_url: AnyUrl | None = None
+
+
+class UpdateVerificationRequest(ContractModel):
+    status: VerificationStatus
+    summary: str | None = None
+    reviewed_by: str | None = None
 
 
 class EntityResolutionResult(ContractModel):

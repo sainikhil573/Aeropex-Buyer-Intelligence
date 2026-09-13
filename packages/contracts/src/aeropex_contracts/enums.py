@@ -43,6 +43,40 @@ class VerificationStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class VerificationType(StrEnum):
+    COMPANY = "company"
+    CONTACT = "contact"
+    REQUIREMENT = "requirement"
+    MANUAL = "manual"
+
+
+class VerificationClaimType(StrEnum):
+    COMPANY_EXISTS = "company_exists"
+    WEBSITE_ASSOCIATION = "website_association"
+    DOMAIN_ASSOCIATION = "domain_association"
+    CONTACT_ASSOCIATION = "contact_association"
+    PHONE_ASSOCIATION = "phone_association"
+    EMAIL_ASSOCIATION = "email_association"
+    BUSINESS_RELEVANCE = "business_relevance"
+    ADDRESS_ASSOCIATION = "address_association"
+    OTHER = "other"
+
+
+class ContactType(StrEnum):
+    GENERAL = "general"
+    PROCUREMENT = "procurement"
+    SALES = "sales"
+    OWNER = "owner"
+    OPERATIONS = "operations"
+    OTHER = "other"
+
+
+class EnrichmentStatus(StrEnum):
+    DISCOVERED = "discovered"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
 class BuyerRequirementStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"

@@ -2,9 +2,9 @@
 
 Aeropex Buyer Intelligence is an internal, production-oriented data and operations platform for discovering, preserving, validating, and eventually acting on buyer intelligence for Aeropex Exports.
 
-Current milestone: **M2.5 Canonical Buyer + BuyerRequirement + Entity Resolution**.
+Current milestone: **M2.6 Buyer Verification + Contact Enrichment**.
 
-Bounded deterministic extraction, SourceObservation evidence persistence, human review workflow, and conservative canonical buyer creation/matching are implemented. Buyer verification, contact verification/enrichment, supplier matching, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
+Bounded deterministic extraction, SourceObservation evidence persistence, human review workflow, conservative canonical buyer creation/matching, and evidence-backed buyer verification/contact enrichment persistence are implemented. Supplier matching, scraping/browser automation, outreach/business workflows, production research agents, and AI/model integrations are **not implemented yet**.
 
 ## Architecture Summary
 
@@ -18,6 +18,7 @@ Bounded deterministic extraction, SourceObservation evidence persistence, human 
 - Extraction: bounded deterministic extractor layer that creates immutable SourceObservation evidence from successful ConnectorResult payloads.
 - Observation Review: mutable review workflow metadata for SourceObservation records without changing evidence.
 - Canonical Buyer Layer: accepted observations can be conservatively resolved into `Buyer` and optional `BuyerRequirement` records, with linkage metadata attached to the observation.
+- Buyer Verification: `VerificationResult`, append-only `VerificationEvidence`, `Contact`, and `EnrichmentResult` records support deterministic fixture validation and human review without external research.
 - Run lifecycle: queued, running, completed, completed_with_warnings, failed, and cancelled.
 - Async execution foundation: Redis and Celery with safe operational test tasks.
 - Control Panel: operational overview, agent inspection, run inspection, error visibility, and system health.
@@ -110,6 +111,12 @@ Operational endpoints:
 - `GET /api/v1/buyers?limit=50&offset=0`
 - `GET /api/v1/buyers/{buyer_id}`
 - `GET /api/v1/buyers/{buyer_id}/requirements`
+- `GET /api/v1/buyers/{buyer_id}/verification`
+- `POST /api/v1/buyers/{buyer_id}/verification/test`
+- `PATCH /api/v1/buyers/{buyer_id}/verification/{verification_id}`
+- `GET /api/v1/buyers/{buyer_id}/verification/evidence`
+- `GET /api/v1/buyers/{buyer_id}/contacts`
+- `GET /api/v1/buyers/{buyer_id}/enrichments`
 - `GET /api/v1/requirements/{requirement_id}`
 
 `POST /api/v1/runs` queues only the safe operational test task. It does not start Buyer Discovery.
@@ -137,6 +144,8 @@ The M2.3 migration adds append-only `source_observations` evidence persistence f
 The M2.4 migration adds one active `observation_reviews` workflow row per observation.
 
 The M2.5 migration adds canonical `buyers` and `buyer_requirements` tables with conservative indexes for deterministic entity resolution.
+
+The M2.6 migration adds `verification_results`, `verification_evidence`, `contacts`, and `enrichment_results` for evidence-backed verification and contact enrichment review.
 
 To verify downgrade and upgrade locally:
 
@@ -234,6 +243,20 @@ Accepted SourceObservation -> Entity Resolution -> Buyer -> BuyerRequirement -> 
 
 Entity resolution V0.1 is deterministic and conservative. It auto-matches only exact normalized company name plus exact normalized country, or exact normalized primary domain when present. Multiple matches return `ambiguous` and leave the observation unlinked. Weak/fuzzy signals do not auto-merge.
 
+## Buyer Verification and Contact Enrichment
+
+M2.6 adds the first verification layer:
+
+```text
+Buyer -> VerificationResult -> VerificationEvidence -> Contact / EnrichmentResult -> Human Review -> Buyer status
+```
+
+Verification is separate from discovery, extraction, canonicalization, matching, and outreach. `VerificationEvidence` is append-only and never overwrites `SourceObservation`. `EnrichmentResult` preserves provenance and is not automatically promoted into canonical Buyer or Contact fields.
+
+The controlled fixture endpoint creates a pending `VerificationResult`, evidence rows, discovered enrichment rows, and contact candidates only from explicit request values. It does not browse, scrape, call AI, infer emails, infer websites from email domains, or mark buyers verified automatically.
+
+Human review updates the selected `VerificationResult.status` and synchronizes `Buyer.verification_status`. `verified` means identity evidence was reviewed for V0.1; it does not mean financially safe, creditworthy, contractually approved, scam-proof, regulator-approved, or approved for outreach.
+
 ## Start the Next.js Frontend
 
 Configure the frontend API base URL. For local development, create `apps/web/.env.local`:
@@ -265,6 +288,8 @@ Functional M2.1 pages:
 - `/system-health`
 - `/buyer-intelligence`
 - `/buyer-intelligence/{observationId}`
+- `/buyers`
+- `/buyers/{buyerId}`
 
 Suppliers, Approvals, and Data Pipeline remain clearly labeled future-milestone placeholders.
 
@@ -296,7 +321,7 @@ npm run build
 - Scraping/browser automation
 - LLM/model integrations
 - Human approval workflows
-- Buyer, supplier, matching, outreach, and verification persistence
+- Supplier, matching, outreach, production research agents, and external verification connectors
 - Azure resource provisioning
 
 ## Configuration Governance
@@ -312,6 +337,15 @@ operational_status == active
 ```
 
 ## Change Log
+
+### M2.6 - Buyer Verification + Contact Enrichment
+
+- Added `VerificationResult`, append-only `VerificationEvidence`, `Contact`, and `EnrichmentResult` persistence.
+- Added `BuyerVerificationService` with transactional controlled fixture creation, contact dedupe within a buyer, provenance-preserving enrichment, audit events, and human review status sync to `Buyer.verification_status`.
+- Added verification, evidence, contacts, and enrichments API endpoints under `/api/v1/buyers/{buyer_id}`.
+- Added `/buyers` and `/buyers/{buyerId}` Control Panel pages.
+- Added ADR-020 and focused backend/contract/frontend tests.
+- Deferred public web research, scraping, browser automation, LLM/Astra, matching, outreach, RFQ, ADLS/ADF/Databricks, and production research agents.
 
 ### M2.4 - Buyer Intelligence UI + Observation Review Workflow
 

@@ -7,9 +7,13 @@ from aeropex_api.db.models.operational import (
     AuditEvent,
     Buyer,
     BuyerRequirement,
+    Contact,
+    EnrichmentResult,
     ErrorEvent,
     ObservationReview,
     SourceObservation,
+    VerificationEvidence,
+    VerificationResult,
 )
 
 __all__ = [
@@ -18,9 +22,13 @@ __all__ = [
     "AuditEvent",
     "Buyer",
     "BuyerRequirement",
+    "Contact",
+    "EnrichmentResult",
     "ErrorEvent",
     "ObservationReview",
     "Product",
     "Source",
     "SourceObservation",
+    "VerificationEvidence",
+    "VerificationResult",
 ]

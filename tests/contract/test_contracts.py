@@ -12,6 +12,10 @@ from aeropex_contracts import (
     ConnectorRequest,
     ConnectorResult,
     ConnectorStatus,
+    Contact,
+    ContactType,
+    EnrichmentResult,
+    EnrichmentStatus,
     EvidenceType,
     ExtractionRequest,
     ExtractionResult,
@@ -25,7 +29,11 @@ from aeropex_contracts import (
     SourceObservation,
     SourceOperationalStatus,
     TriggerType,
+    VerificationClaimType,
+    VerificationEvidence,
+    VerificationResult,
     VerificationStatus,
+    VerificationType,
 )
 from pydantic import ValidationError
 
@@ -383,3 +391,49 @@ def test_observation_review_contracts_are_workflow_metadata() -> None:
         "accepted",
         "rejected",
     }
+
+
+def test_buyer_verification_enrichment_contracts() -> None:
+    result = VerificationResult(
+        verification_id="VRF-000001",
+        buyer_id="BUY-000001",
+        status=VerificationStatus.PENDING,
+        verification_type=VerificationType.COMPANY,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+    evidence = VerificationEvidence(
+        evidence_id="VEV-000001",
+        verification_id=result.verification_id,
+        buyer_id=result.buyer_id,
+        source_type="controlled_fixture",
+        source_url="https://controlled-fixture.local/company",
+        evidence_text="Controlled fixture confirms company record.",
+        captured_at=NOW,
+        claim_type=VerificationClaimType.COMPANY_EXISTS,
+        supports_claim=True,
+    )
+    contact = Contact(
+        contact_id="CON-000001",
+        buyer_id=result.buyer_id,
+        contact_type=ContactType.GENERAL,
+        verification_status=VerificationStatus.UNVERIFIED,
+        created_at=NOW,
+        updated_at=NOW,
+        email="procurement@example.com",
+    )
+    enrichment = EnrichmentResult(
+        enrichment_id="ENR-000001",
+        buyer_id=result.buyer_id,
+        field_name="website",
+        field_value="https://example.com",
+        source_type="controlled_fixture",
+        captured_at=NOW,
+        status=EnrichmentStatus.DISCOVERED,
+        created_at=NOW,
+    )
+
+    assert result.confidence_score is None
+    assert evidence.claim_type == VerificationClaimType.COMPANY_EXISTS
+    assert contact.name is None
+    assert enrichment.status == EnrichmentStatus.DISCOVERED

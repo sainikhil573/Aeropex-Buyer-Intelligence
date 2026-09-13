@@ -9,13 +9,17 @@ from aeropex_contracts.enums import (
     AgentStatus,
     AuthorityLevel,
     BuyerRequirementStatus,
+    ContactType,
+    EnrichmentStatus,
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
     ObservationReviewStatus,
     RunStatus,
     TriggerType,
+    VerificationClaimType,
     VerificationStatus,
+    VerificationType,
 )
 from sqlalchemy import (
     Boolean,
@@ -180,6 +184,9 @@ class Buyer(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
     requirements: Mapped[list[BuyerRequirement]] = relationship(back_populates="buyer")
+    verification_results: Mapped[list[VerificationResult]] = relationship(back_populates="buyer")
+    contacts: Mapped[list[Contact]] = relationship(back_populates="buyer")
+    enrichment_results: Mapped[list[EnrichmentResult]] = relationship(back_populates="buyer")
 
 
 class BuyerRequirement(Base):
@@ -210,6 +217,143 @@ class BuyerRequirement(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
     buyer: Mapped[Buyer] = relationship(back_populates="requirements")
+
+
+class VerificationResult(Base):
+    __tablename__ = "verification_results"
+    __table_args__ = (
+        CheckConstraint(
+            "confidence_score IS NULL OR (confidence_score >= 0 AND confidence_score <= 1)",
+            name="ck_verification_results_confidence_score_range",
+        ),
+        Index("ix_verification_results_buyer_status", "buyer_id", "status"),
+    )
+
+    verification_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    buyer_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("buyers.buyer_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    status: Mapped[VerificationStatus] = mapped_column(
+        Enum(VerificationStatus, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        index=True,
+    )
+    verification_type: Mapped[VerificationType] = mapped_column(
+        Enum(VerificationType, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        index=True,
+    )
+    summary: Mapped[str | None] = mapped_column(Text)
+    confidence_score: Mapped[float | None] = mapped_column(Float)
+    reviewed_by: Mapped[str | None] = mapped_column(String(100))
+    reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    risk_flags: Mapped[dict[str, Any]] = mapped_column(json_type, nullable=False, default=dict)
+    checks: Mapped[dict[str, Any]] = mapped_column(json_type, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    buyer: Mapped[Buyer] = relationship(back_populates="verification_results")
+    evidence: Mapped[list[VerificationEvidence]] = relationship(back_populates="verification")
+
+
+class VerificationEvidence(Base):
+    __tablename__ = "verification_evidence"
+    __table_args__ = (
+        Index("ix_verification_evidence_verification_claim", "verification_id", "claim_type"),
+    )
+
+    evidence_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    verification_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("verification_results.verification_id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    buyer_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("buyers.buyer_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    source_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(2048))
+    evidence_text: Mapped[str] = mapped_column(Text, nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    claim_type: Mapped[VerificationClaimType] = mapped_column(
+        Enum(VerificationClaimType, values_callable=enum_values, native_enum=False, length=64),
+        nullable=False,
+        index=True,
+    )
+    claim_value: Mapped[str | None] = mapped_column(Text)
+    supports_claim: Mapped[bool | None] = mapped_column(Boolean)
+    evidence_metadata: Mapped[dict[str, Any]] = mapped_column(json_type, nullable=False, default=dict)
+
+    verification: Mapped[VerificationResult] = relationship(back_populates="evidence")
+
+
+class Contact(Base):
+    __tablename__ = "contacts"
+    __table_args__ = (
+        Index("ix_contacts_buyer_email", "buyer_id", "normalized_email"),
+        Index("ix_contacts_buyer_phone", "buyer_id", "normalized_phone"),
+        Index("ix_contacts_buyer_status", "buyer_id", "verification_status"),
+    )
+
+    contact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    buyer_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("buyers.buyer_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    name: Mapped[str | None] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(320))
+    normalized_email: Mapped[str | None] = mapped_column(String(320), index=True)
+    phone: Mapped[str | None] = mapped_column(String(100))
+    normalized_phone: Mapped[str | None] = mapped_column(String(100), index=True)
+    title: Mapped[str | None] = mapped_column(String(255))
+    department: Mapped[str | None] = mapped_column(String(255))
+    contact_type: Mapped[ContactType] = mapped_column(
+        Enum(ContactType, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        default=ContactType.GENERAL,
+        index=True,
+    )
+    verification_status: Mapped[VerificationStatus] = mapped_column(
+        Enum(VerificationStatus, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        default=VerificationStatus.UNVERIFIED,
+        index=True,
+    )
+    source_observation_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    buyer: Mapped[Buyer] = relationship(back_populates="contacts")
+
+
+class EnrichmentResult(Base):
+    __tablename__ = "enrichment_results"
+    __table_args__ = (
+        Index("ix_enrichment_results_buyer_status", "buyer_id", "status"),
+        Index("ix_enrichment_results_buyer_field", "buyer_id", "field_name"),
+    )
+
+    enrichment_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    buyer_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("buyers.buyer_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    contact_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("contacts.contact_id", ondelete="SET NULL"), index=True
+    )
+    field_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    field_value: Mapped[str] = mapped_column(Text, nullable=False)
+    source_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(2048))
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    status: Mapped[EnrichmentStatus] = mapped_column(
+        Enum(EnrichmentStatus, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        default=EnrichmentStatus.DISCOVERED,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    buyer: Mapped[Buyer] = relationship(back_populates="enrichment_results")
 
 
 class SourceObservation(Base):

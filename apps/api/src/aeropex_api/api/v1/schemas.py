@@ -10,6 +10,8 @@ from aeropex_contracts.enums import (
     AuthorityLevel,
     BuyerRequirementStatus,
     ConnectorStatus,
+    ContactType,
+    EnrichmentStatus,
     EntityResolutionStatus,
     ErrorSeverity,
     EvidenceType,
@@ -17,7 +19,9 @@ from aeropex_contracts.enums import (
     ObservationReviewStatus,
     RunStatus,
     TriggerType,
+    VerificationClaimType,
     VerificationStatus,
+    VerificationType,
 )
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -146,6 +150,7 @@ class BuyerResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     requirements_count: int | None = None
+    contacts_count: int | None = None
 
 
 class BuyerRequirementResponse(BaseModel):
@@ -163,6 +168,116 @@ class BuyerRequirementResponse(BaseModel):
     status: BuyerRequirementStatus
     created_at: datetime
     updated_at: datetime
+
+
+class VerificationEvidenceInput(BaseModel):
+    source_type: str = Field(default="controlled_fixture", min_length=1, max_length=100)
+    source_url: str | None = Field(default=None, max_length=2048)
+    evidence_text: str = Field(min_length=1, max_length=20_000)
+    claim_type: VerificationClaimType
+    claim_value: str | None = Field(default=None, max_length=2048)
+    supports_claim: bool | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ControlledVerificationTestRequest(BaseModel):
+    company_exists: bool | None = None
+    business_relevance: bool | None = None
+    website: str | None = Field(default=None, max_length=2048)
+    primary_domain: str | None = Field(default=None, max_length=255)
+    general_email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=100)
+    contact_name: str | None = Field(default=None, max_length=255)
+    contact_email: str | None = Field(default=None, max_length=320)
+    contact_phone: str | None = Field(default=None, max_length=100)
+    contact_title: str | None = Field(default=None, max_length=255)
+    contact_department: str | None = Field(default=None, max_length=255)
+    contact_type: ContactType = ContactType.GENERAL
+    address: str | None = Field(default=None, max_length=2048)
+    source_url: str | None = Field(default=None, max_length=2048)
+    source_observation_id: str | None = Field(default=None, max_length=64)
+    evidence: list[VerificationEvidenceInput] = Field(default_factory=list)
+
+
+class VerificationResultResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    verification_id: str
+    buyer_id: str
+    status: VerificationStatus
+    verification_type: VerificationType
+    summary: str | None
+    confidence_score: float | None
+    reviewed_by: str | None
+    reviewed_at: datetime | None
+    risk_flags: dict[str, Any]
+    checks: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+
+class VerificationEvidenceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    evidence_id: str
+    verification_id: str
+    buyer_id: str
+    source_type: str
+    source_url: str | None
+    evidence_text: str
+    captured_at: datetime
+    claim_type: VerificationClaimType
+    claim_value: str | None
+    supports_claim: bool | None
+    metadata: dict[str, Any] = Field(validation_alias="evidence_metadata")
+
+
+class ContactResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    contact_id: str
+    buyer_id: str
+    name: str | None
+    email: str | None
+    normalized_email: str | None
+    phone: str | None
+    normalized_phone: str | None
+    title: str | None
+    department: str | None
+    contact_type: ContactType
+    verification_status: VerificationStatus
+    source_observation_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class EnrichmentResultResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    enrichment_id: str
+    buyer_id: str
+    contact_id: str | None
+    field_name: str
+    field_value: str
+    source_type: str
+    source_url: str | None
+    captured_at: datetime
+    status: EnrichmentStatus
+    created_at: datetime
+
+
+class BuyerVerificationStateResponse(BaseModel):
+    buyer: BuyerResponse
+    verification_results: list[VerificationResultResponse]
+    evidence: list[VerificationEvidenceResponse]
+    contacts: list[ContactResponse]
+    enrichments: list[EnrichmentResultResponse]
+
+
+class UpdateVerificationRequest(BaseModel):
+    status: VerificationStatus
+    summary: str | None = Field(default=None, max_length=10_000)
+    reviewed_by: str | None = Field(default=None, max_length=100)
 
 
 class CanonicalizationResultResponse(BaseModel):

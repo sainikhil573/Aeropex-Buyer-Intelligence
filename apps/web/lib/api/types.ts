@@ -15,6 +15,20 @@ export type SourceAccessMethod = "api" | "http" | "browser" | "manual";
 export type ExtractionStatus = "success" | "partial" | "unstructured" | "failed";
 export type EvidenceType = "page_text" | "listing" | "directory_entry" | "api_record" | "manual_entry" | "unknown";
 export type ObservationReviewStatus = "unreviewed" | "needs_review" | "accepted" | "rejected";
+export type VerificationStatus = "unverified" | "pending" | "partially_verified" | "verified" | "rejected";
+export type VerificationType = "company" | "contact" | "requirement" | "manual";
+export type VerificationClaimType =
+  | "company_exists"
+  | "website_association"
+  | "domain_association"
+  | "contact_association"
+  | "phone_association"
+  | "email_association"
+  | "business_relevance"
+  | "address_association"
+  | "other";
+export type ContactType = "general" | "procurement" | "sales" | "owner" | "operations" | "other";
+export type EnrichmentStatus = "discovered" | "accepted" | "rejected";
 export type EntityResolutionStatus =
   | "created"
   | "matched"
@@ -207,4 +221,108 @@ export type CanonicalizationResult = {
   matched_existing_buyer: boolean;
   candidate_buyer_ids: string[];
   reason: string | null;
+};
+
+export type Buyer = {
+  buyer_id: string;
+  company_name: string;
+  normalized_company_name: string;
+  country: string | null;
+  website: string | null;
+  primary_domain: string | null;
+  company_type: string | null;
+  verification_status: VerificationStatus;
+  confidence_score: number | null;
+  created_at: string;
+  updated_at: string;
+  requirements_count: number | null;
+  contacts_count: number | null;
+};
+
+export type BuyerRequirement = {
+  requirement_id: string;
+  buyer_id: string;
+  product_id: string | null;
+  requirement_text: string | null;
+  quantity: number | null;
+  unit: string | null;
+  specifications: Record<string, unknown>;
+  destination: string | null;
+  posted_at: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VerificationResult = {
+  verification_id: string;
+  buyer_id: string;
+  status: VerificationStatus;
+  verification_type: VerificationType;
+  summary: string | null;
+  confidence_score: number | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  risk_flags: Record<string, unknown>;
+  checks: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VerificationEvidence = {
+  evidence_id: string;
+  verification_id: string;
+  buyer_id: string;
+  source_type: string;
+  source_url: string | null;
+  evidence_text: string;
+  captured_at: string;
+  claim_type: VerificationClaimType;
+  claim_value: string | null;
+  supports_claim: boolean | null;
+  metadata: Record<string, unknown>;
+};
+
+export type Contact = {
+  contact_id: string;
+  buyer_id: string;
+  name: string | null;
+  email: string | null;
+  normalized_email: string | null;
+  phone: string | null;
+  normalized_phone: string | null;
+  title: string | null;
+  department: string | null;
+  contact_type: ContactType;
+  verification_status: VerificationStatus;
+  source_observation_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EnrichmentResult = {
+  enrichment_id: string;
+  buyer_id: string;
+  contact_id: string | null;
+  field_name: string;
+  field_value: string;
+  source_type: string;
+  source_url: string | null;
+  captured_at: string;
+  status: EnrichmentStatus;
+  created_at: string;
+};
+
+export type BuyerVerificationState = {
+  buyer: Buyer;
+  verification_results: VerificationResult[];
+  evidence: VerificationEvidence[];
+  contacts: Contact[];
+  enrichments: EnrichmentResult[];
+};
+
+export type UpdateVerification = {
+  status: VerificationStatus;
+  summary?: string | null;
+  reviewed_by?: string | null;
 };

@@ -1,6 +1,9 @@
 import type {
   Agent,
   AgentRun,
+  Buyer,
+  BuyerRequirement,
+  BuyerVerificationState,
   CanonicalizationResult,
   ErrorEvent,
   HealthResponse,
@@ -20,6 +23,9 @@ import type {
   ObservationReview,
   ObservationReviewStatus,
   UpdateObservationReview,
+  UpdateVerification,
+  VerificationResult,
+  VerificationStatus,
 } from "./types";
 
 export class ApiError extends Error {
@@ -227,4 +233,38 @@ export function canonicalizeObservation(observationId: string) {
   return request<CanonicalizationResult>(`/api/v1/observations/${encodeURIComponent(observationId)}/canonicalize`, {
     method: "POST",
   });
+}
+
+export function listBuyers(
+  options: { limit?: number; offset?: number; country?: string; verificationStatus?: VerificationStatus } = {},
+) {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 50),
+    offset: String(options.offset ?? 0),
+  });
+  if (options.country) params.set("country", options.country);
+  if (options.verificationStatus) params.set("verification_status", options.verificationStatus);
+  return request<Buyer[]>(`/api/v1/buyers?${params}`);
+}
+
+export function getBuyer(buyerId: string) {
+  return request<Buyer>(`/api/v1/buyers/${encodeURIComponent(buyerId)}`);
+}
+
+export function listBuyerRequirements(buyerId: string) {
+  return request<BuyerRequirement[]>(`/api/v1/buyers/${encodeURIComponent(buyerId)}/requirements`);
+}
+
+export function getBuyerVerification(buyerId: string) {
+  return request<BuyerVerificationState>(`/api/v1/buyers/${encodeURIComponent(buyerId)}/verification`);
+}
+
+export function updateVerification(buyerId: string, verificationId: string, payload: UpdateVerification) {
+  return request<VerificationResult>(
+    `/api/v1/buyers/${encodeURIComponent(buyerId)}/verification/${encodeURIComponent(verificationId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
 }

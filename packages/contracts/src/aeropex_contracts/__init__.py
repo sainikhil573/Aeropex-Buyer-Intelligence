@@ -6,6 +6,8 @@ from aeropex_contracts.enums import (
     AuthorityLevel,
     BuyerRequirementStatus,
     ConnectorStatus,
+    ContactType,
+    EnrichmentStatus,
     EntityResolutionStatus,
     ErrorSeverity,
     EvidenceType,
@@ -16,7 +18,9 @@ from aeropex_contracts.enums import (
     SourceApprovalStatus,
     SourceOperationalStatus,
     TriggerType,
+    VerificationClaimType,
     VerificationStatus,
+    VerificationType,
 )
 from aeropex_contracts.models import (
     Agent,
@@ -28,6 +32,8 @@ from aeropex_contracts.models import (
     CanonicalizationResult,
     ConnectorRequest,
     ConnectorResult,
+    Contact,
+    EnrichmentResult,
     EntityResolutionResult,
     ErrorEvent,
     ExtractionRequest,
@@ -44,6 +50,9 @@ from aeropex_contracts.models import (
     SourceRead,
     SourceUpdate,
     UpdateObservationReviewRequest,
+    UpdateVerificationRequest,
+    VerificationEvidence,
+    VerificationResult,
 )
 
 __all__ = [
@@ -61,6 +70,10 @@ __all__ = [
     "ConnectorRequest",
     "ConnectorResult",
     "ConnectorStatus",
+    "Contact",
+    "ContactType",
+    "EnrichmentResult",
+    "EnrichmentStatus",
     "EntityResolutionResult",
     "EntityResolutionStatus",
     "ErrorEvent",
@@ -87,5 +100,10 @@ __all__ = [
     "SourceUpdate",
     "TriggerType",
     "UpdateObservationReviewRequest",
+    "UpdateVerificationRequest",
+    "VerificationClaimType",
+    "VerificationEvidence",
+    "VerificationResult",
     "VerificationStatus",
+    "VerificationType",
 ]

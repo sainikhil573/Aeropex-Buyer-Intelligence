@@ -1080,3 +1080,39 @@ M2.5 non-goals:
 - Supplier discovery or buyer-supplier matching
 - Outreach, email, RFQ, or scheduling
 - Full duplicate-resolution UI
+
+## M2.6 - Buyer Verification + Contact Enrichment
+
+M2.6 adds the first evidence-backed verification and enrichment layer for canonical buyers.
+
+Implemented:
+
+- PostgreSQL persistence for `VerificationResult`, `VerificationEvidence`, `Contact`, and `EnrichmentResult`.
+- `BuyerVerificationService` for controlled verification creation, evidence attachment, explicit contact candidate creation, enrichment persistence, human review, buyer verification-status sync, audit events, and rollback on failure.
+- Controlled fixture endpoint: `POST /api/v1/buyers/{buyer_id}/verification/test`.
+- Verification review endpoint: `PATCH /api/v1/buyers/{buyer_id}/verification/{verification_id}`.
+- Buyer verification read endpoints for state, evidence, contacts, and enrichments.
+- Control Panel Buyer list and detail pages at `/buyers` and `/buyers/{buyerId}`.
+
+Architecture responsibility:
+
+```text
+SourceObservation
+    immutable discovery evidence
+
+Buyer
+    canonical company identity
+
+VerificationResult
+    mutable human-reviewed assessment
+
+VerificationEvidence
+    append-only verification evidence
+
+Contact / EnrichmentResult
+    explicit contact candidates and provenance-backed discovered fields
+```
+
+Accepted does not mean verified. Canonicalized does not mean verified. Verified does not mean financially safe, creditworthy, contractually approved, scam-proof, regulator-approved, or approved for outreach.
+
+M2.6 V0.1 does not perform public web research, scraping, browser automation, AI/Astra/LLM analysis, supplier discovery, buyer-supplier matching, outreach, RFQs, ADLS/ADF/Databricks work, scheduling, or supervisor automation.

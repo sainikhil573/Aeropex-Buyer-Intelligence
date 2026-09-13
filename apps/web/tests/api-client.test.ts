@@ -3,11 +3,14 @@ import {
   ApiError,
   canonicalizeObservation,
   createOperationalTestRun,
+  getBuyerVerification,
   getObservation,
   getObservationReview,
   listObservations,
+  listBuyers,
   listRuns,
   updateObservationReview,
+  updateVerification,
 } from "../lib/api/client";
 
 afterEach(() => {
@@ -130,6 +133,36 @@ describe("API client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8000/api/v1/observations/OBS-1/canonicalize",
       expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("lists buyers and updates buyer verification", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://api.test");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ buyer_id: "BUY-1", verification_status: "pending" }] })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ buyer: { buyer_id: "BUY-1" }, evidence: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ verification_id: "VRF-1", status: "verified" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listBuyers({ verificationStatus: "pending" })).resolves.toEqual([
+      { buyer_id: "BUY-1", verification_status: "pending" },
+    ]);
+    await expect(getBuyerVerification("BUY-1")).resolves.toEqual({ buyer: { buyer_id: "BUY-1" }, evidence: [] });
+    await updateVerification("BUY-1", "VRF-1", { status: "verified", summary: "Human reviewed." });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://api.test/api/v1/buyers?limit=50&offset=0&verification_status=pending",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "http://api.test/api/v1/buyers/BUY-1/verification/VRF-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ status: "verified", summary: "Human reviewed." }),
+      }),
     );
   });
 });

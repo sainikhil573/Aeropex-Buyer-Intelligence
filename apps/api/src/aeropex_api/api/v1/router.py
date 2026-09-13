@@ -31,9 +31,13 @@ from aeropex_api.api.v1.schemas import (
     AgentRunResponse,
     BuyerRequirementResponse,
     BuyerResponse,
+    BuyerVerificationStateResponse,
     CanonicalizationResultResponse,
     ConnectorResultResponse,
     ConnectorTestRequest,
+    ContactResponse,
+    ControlledVerificationTestRequest,
+    EnrichmentResultResponse,
     ErrorEventResponse,
     ExtractionTestRequest,
     ObservationReviewResponse,
@@ -42,15 +46,22 @@ from aeropex_api.api.v1.schemas import (
     RunCreateResponse,
     SourceObservationResponse,
     UpdateObservationReviewRequest,
+    UpdateVerificationRequest,
+    VerificationEvidenceResponse,
+    VerificationResultResponse,
 )
 from aeropex_api.db.models import (
     Agent,
     AgentRun,
     Buyer,
     BuyerRequirement,
+    Contact,
+    EnrichmentResult,
     ErrorEvent,
     Source,
     SourceObservation,
+    VerificationEvidence,
+    VerificationResult,
 )
 from aeropex_api.db.session import get_db_session
 from aeropex_api.services.buyer_canonicalization import (
@@ -58,6 +69,13 @@ from aeropex_api.services.buyer_canonicalization import (
 )
 from aeropex_api.services.buyer_canonicalization import (
     ObservationNotFoundError as CanonicalizationObservationNotFoundError,
+)
+from aeropex_api.services.buyer_verification import (
+    BuyerNotFoundError as VerificationBuyerNotFoundError,
+)
+from aeropex_api.services.buyer_verification import (
+    BuyerVerificationService,
+    VerificationNotFoundError,
 )
 from aeropex_api.services.configuration import (
     ConfigurationError,
@@ -114,7 +132,8 @@ def _buyer_response(session: Session, buyer: Buyer) -> BuyerResponse:
     requirements_count = (
         session.query(BuyerRequirement).filter(BuyerRequirement.buyer_id == buyer.buyer_id).count()
     )
-    return response.model_copy(update={"requirements_count": requirements_count})
+    contacts_count = session.query(Contact).filter(Contact.buyer_id == buyer.buyer_id).count()
+    return response.model_copy(update={"requirements_count": requirements_count, "contacts_count": contacts_count})
 
 
 def _configuration_error_to_http(exc: ConfigurationError) -> HTTPException:
@@ -355,6 +374,135 @@ def get_buyer(buyer_id: str, session: SessionDep) -> BuyerResponse:
     if buyer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found")
     return _buyer_response(session, buyer)
+
+
+@api_router.get(
+    "/buyers/{buyer_id}/verification",
+    response_model=BuyerVerificationStateResponse,
+    tags=["buyers"],
+)
+def get_buyer_verification(buyer_id: str, session: SessionDep) -> BuyerVerificationStateResponse:
+    service = BuyerVerificationService(session)
+    try:
+        state = service.current_state(buyer_id)
+    except VerificationBuyerNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found") from exc
+    return BuyerVerificationStateResponse(
+        buyer=_buyer_response(session, state["buyer"]),
+        verification_results=[
+            VerificationResultResponse.model_validate(result, from_attributes=True)
+            for result in state["verification_results"]
+        ],
+        evidence=[
+            VerificationEvidenceResponse.model_validate(evidence, from_attributes=True)
+            for evidence in state["evidence"]
+        ],
+        contacts=[ContactResponse.model_validate(contact, from_attributes=True) for contact in state["contacts"]],
+        enrichments=[
+            EnrichmentResultResponse.model_validate(enrichment, from_attributes=True)
+            for enrichment in state["enrichments"]
+        ],
+    )
+
+
+@api_router.post(
+    "/buyers/{buyer_id}/verification/test",
+    response_model=VerificationResultResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["buyers"],
+)
+def create_controlled_verification_test(
+    buyer_id: str,
+    payload: ControlledVerificationTestRequest,
+    session: SessionDep,
+) -> VerificationResult:
+    try:
+        return BuyerVerificationService(session).create_controlled_test_verification(
+            buyer_id,
+            payload.model_dump(),
+        )
+    except VerificationBuyerNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found") from exc
+    except (ValueError, SQLAlchemyError) as exc:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification creation failed") from exc
+
+
+@api_router.patch(
+    "/buyers/{buyer_id}/verification/{verification_id}",
+    response_model=VerificationResultResponse,
+    tags=["buyers"],
+)
+def update_verification_review(
+    buyer_id: str,
+    verification_id: str,
+    payload: UpdateVerificationRequest,
+    session: SessionDep,
+) -> VerificationResult:
+    try:
+        return BuyerVerificationService(session).update_review(
+            buyer_id,
+            verification_id,
+            status=payload.status,
+            summary=payload.summary,
+            reviewed_by=payload.reviewed_by,
+        )
+    except (VerificationBuyerNotFoundError, VerificationNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Verification not found") from exc
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Verification update failed") from exc
+
+
+@api_router.get(
+    "/buyers/{buyer_id}/verification/evidence",
+    response_model=list[VerificationEvidenceResponse],
+    tags=["buyers"],
+)
+def list_verification_evidence(
+    buyer_id: str,
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+) -> list[VerificationEvidence]:
+    try:
+        return BuyerVerificationService(session).list_evidence(buyer_id, limit=limit, offset=offset)
+    except VerificationBuyerNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found") from exc
+
+
+@api_router.get(
+    "/buyers/{buyer_id}/contacts",
+    response_model=list[ContactResponse],
+    tags=["buyers"],
+)
+def list_buyer_contacts(
+    buyer_id: str,
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+) -> list[Contact]:
+    try:
+        return BuyerVerificationService(session).list_contacts(buyer_id, limit=limit, offset=offset)
+    except VerificationBuyerNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found") from exc
+
+
+@api_router.get(
+    "/buyers/{buyer_id}/enrichments",
+    response_model=list[EnrichmentResultResponse],
+    tags=["buyers"],
+)
+def list_buyer_enrichments(
+    buyer_id: str,
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+) -> list[EnrichmentResult]:
+    try:
+        return BuyerVerificationService(session).list_enrichments(buyer_id, limit=limit, offset=offset)
+    except VerificationBuyerNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found") from exc
 
 
 @api_router.get(

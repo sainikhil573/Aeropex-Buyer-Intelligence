@@ -8,6 +8,7 @@ const navItems = [
   { label: "Overview", href: "/" },
   { label: "Agents", href: "/agents" },
   { label: "Buyer Intelligence", href: "/buyer-intelligence" },
+  { label: "Buyers", href: "/buyers" },
   { label: "Products", href: "/products" },
   { label: "Suppliers", href: "/suppliers" },
   { label: "Sources", href: "/sources" },

@@ -226,6 +226,8 @@ accepted
 rejected
 ```
 
+`VerificationStatus` is an identity-verification workflow status. `verified` does not mean financially safe, creditworthy, contractually approved, regulator-approved, scam-proof, or approved for outreach.
+
 `ObservationReviewStatus` is mutable workflow metadata for human review of SourceObservation records. `accepted` means useful enough for later processing, not verified. `rejected` means do not progress further, not delete evidence.
 
 ---
@@ -855,6 +857,81 @@ Represents the current human review state for one SourceObservation.
 | `created_at` | datetime |
 | `updated_at` | datetime |
 
+---
+
+# 11.5 Buyer Verification and Enrichment Contracts
+
+M2.6 introduces verification persistence separate from discovery, extraction, canonicalization, matching, and outreach.
+
+## VerificationResult
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `verification_id` | string |
+| `buyer_id` | string |
+| `status` | VerificationStatus |
+| `verification_type` | company / contact / requirement / manual |
+| `created_at` | datetime |
+| `updated_at` | datetime |
+
+Optional fields include `summary`, `confidence_score`, `reviewed_by`, `reviewed_at`, `risk_flags`, and `checks`. Confidence remains null unless a deterministic rule is documented.
+
+## VerificationEvidence
+
+Append-only evidence for one verification result.
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `evidence_id` | string |
+| `verification_id` | string |
+| `buyer_id` | string |
+| `source_type` | string |
+| `evidence_text` | string |
+| `captured_at` | datetime |
+| `claim_type` | company_exists / website_association / domain_association / contact_association / phone_association / email_association / business_relevance / address_association / other |
+
+Optional fields include `source_url`, `claim_value`, `supports_claim`, and `metadata`.
+
+## Contact
+
+Canonical contact candidate associated with one Buyer. Contacts are created only from explicit values. Missing name, title, phone, or email remains null.
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `contact_id` | string |
+| `buyer_id` | string |
+| `contact_type` | general / procurement / sales / owner / operations / other |
+| `verification_status` | VerificationStatus |
+| `created_at` | datetime |
+| `updated_at` | datetime |
+
+Email normalization is limited to trim, lowercase, and basic format validation. Phone normalization preserves the provided value. Same normalized email/phone may appear for different buyers.
+
+## EnrichmentResult
+
+Evidence-backed discovered public business field. Enrichment does not automatically overwrite canonical Buyer or Contact fields.
+
+Required fields:
+
+| Field | Type |
+|---|---|
+| `enrichment_id` | string |
+| `buyer_id` | string |
+| `field_name` | string |
+| `field_value` | string |
+| `source_type` | string |
+| `captured_at` | datetime |
+| `status` | discovered / accepted / rejected |
+| `created_at` | datetime |
+
+Optional fields include `contact_id` and `source_url`.
+
 ## Optional Fields
 
 | Field | Type |
@@ -1028,7 +1105,10 @@ Buyer             BuyerRequirement
    +---------+----------+
              |
              v
-      Future Verification
+      VerificationResult / VerificationEvidence
+             |
+             v
+      Contact / EnrichmentResult
              |
              v
        Future Matching
@@ -1252,8 +1332,6 @@ RelationshipEvent
 ## Intelligence Domain
 
 ```text
-VerificationResult
-EnrichmentResult
 Match
 MatchExplanation
 ```
