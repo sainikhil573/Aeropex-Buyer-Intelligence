@@ -4,8 +4,16 @@ import type {
   ErrorEvent,
   HealthResponse,
   Overview,
+  Product,
+  ProductCreate,
+  ProductUpdate,
   ReadinessResponse,
   RunCreateResponse,
+  Source,
+  SourceApprovalStatus,
+  SourceCreate,
+  SourceOperationalStatus,
+  SourceUpdate,
 } from "./types";
 
 export class ApiError extends Error {
@@ -96,4 +104,79 @@ export function getRootHealth() {
 
 export function getReadiness() {
   return request<ReadinessResponse>("/ready");
+}
+
+export function listProducts(options: { limit?: number; offset?: number; active?: boolean; category?: string } = {}) {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 50),
+    offset: String(options.offset ?? 0),
+  });
+  if (options.active !== undefined) params.set("active", String(options.active));
+  if (options.category) params.set("category", options.category);
+  return request<Product[]>(`/api/v1/products?${params}`);
+}
+
+export function createProduct(payload: ProductCreate) {
+  return request<Product>("/api/v1/products", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateProduct(productId: string, payload: ProductUpdate) {
+  return request<Product>(`/api/v1/products/${encodeURIComponent(productId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listSources(
+  options: {
+    limit?: number;
+    offset?: number;
+    approvalStatus?: SourceApprovalStatus;
+    operationalStatus?: SourceOperationalStatus;
+  } = {},
+) {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 50),
+    offset: String(options.offset ?? 0),
+  });
+  if (options.approvalStatus) params.set("approval_status", options.approvalStatus);
+  if (options.operationalStatus) params.set("operational_status", options.operationalStatus);
+  return request<Source[]>(`/api/v1/sources?${params}`);
+}
+
+export function listEligibleSources(options: { limit?: number; offset?: number } = {}) {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 50),
+    offset: String(options.offset ?? 0),
+  });
+  return request<Source[]>(`/api/v1/sources/eligible?${params}`);
+}
+
+export function createSource(payload: SourceCreate) {
+  return request<Source>("/api/v1/sources", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateSource(sourceId: string, payload: SourceUpdate) {
+  return request<Source>(`/api/v1/sources/${encodeURIComponent(sourceId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function approveSource(sourceId: string) {
+  return request<Source>(`/api/v1/sources/${encodeURIComponent(sourceId)}/approve`, {
+    method: "POST",
+  });
+}
+
+export function rejectSource(sourceId: string) {
+  return request<Source>(`/api/v1/sources/${encodeURIComponent(sourceId)}/reject`, {
+    method: "POST",
+  });
 }

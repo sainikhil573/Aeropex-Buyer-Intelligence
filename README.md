@@ -2,7 +2,7 @@
 
 Aeropex Buyer Intelligence is an internal, production-oriented data and operations platform for discovering, preserving, validating, and eventually acting on buyer intelligence for Aeropex Exports.
 
-Current milestone: **M1.3 Control Panel Operational Dashboard**.
+Current milestone: **M2.1 Product Configuration + Source Registry**.
 
 Buyer Discovery, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
 
@@ -13,6 +13,7 @@ Buyer Discovery, scraping/browser automation, business workflows, and AI/model i
 - Contracts: Pydantic V0.1 data contracts kept separate from persistence models.
 - Operational database: PostgreSQL through SQLAlchemy and Alembic.
 - Operational persistence: Agent, AgentRun, ErrorEvent, and AuditEvent.
+- Configuration persistence: Product and Source Registry control-plane entities.
 - Run lifecycle: queued, running, completed, completed_with_warnings, failed, and cancelled.
 - Async execution foundation: Redis and Celery with safe operational test tasks.
 - Control Panel: operational overview, agent inspection, run inspection, error visibility, and system health.
@@ -84,6 +85,17 @@ Operational endpoints:
 - `GET /api/v1/runs/{run_id}`
 - `POST /api/v1/runs`
 - `GET /api/v1/errors?limit=50&offset=0`
+- `GET /api/v1/products?limit=50&offset=0&active=true&category=Spices`
+- `GET /api/v1/products/{product_id}`
+- `POST /api/v1/products`
+- `PATCH /api/v1/products/{product_id}`
+- `GET /api/v1/sources?limit=50&offset=0`
+- `GET /api/v1/sources/eligible`
+- `GET /api/v1/sources/{source_id}`
+- `POST /api/v1/sources`
+- `PATCH /api/v1/sources/{source_id}`
+- `POST /api/v1/sources/{source_id}/approve`
+- `POST /api/v1/sources/{source_id}/reject`
 
 `POST /api/v1/runs` queues only the safe operational test task. It does not start Buyer Discovery.
 
@@ -98,6 +110,8 @@ The M1.2 migration creates the operational tables and registers the initial Buye
 ```text
 AGT-BUYER-DISCOVERY-001
 ```
+
+The M2.1 migration adds Product and Source Registry tables and seeds idempotent configuration examples. Seeded products intentionally do not fabricate HS codes.
 
 To verify downgrade and upgrade locally:
 
@@ -145,15 +159,17 @@ Open the Control Panel at:
 http://localhost:3000
 ```
 
-Functional M1.3 pages:
+Functional M2.1 pages:
 
 - `/` Overview
 - `/agents`
 - `/agents/{agentId}`
+- `/products`
+- `/sources`
 - `/runs/{runId}`
 - `/system-health`
 
-Buyer Intelligence, Suppliers, Sources, Approvals, and Data Pipeline remain clearly labeled future-milestone placeholders.
+Buyer Intelligence, Suppliers, Approvals, and Data Pipeline remain clearly labeled future-milestone placeholders.
 
 ## Execute the Safe Operational Test Run
 
@@ -186,7 +202,29 @@ npm run build
 - Buyer, supplier, matching, outreach, and verification persistence
 - Azure resource provisioning
 
+## Configuration Governance
+
+Products and sources are platform-owned configuration. Buyer Discovery will consume approved configuration in a future milestone, but M2.1 does not allow discovery runs to create production product/source configuration.
+
+New sources start as `candidate`. A human-controlled action may approve or reject a candidate. Future Buyer Discovery eligibility is defined as:
+
+```text
+approval_status == approved
+AND
+operational_status == active
+```
+
 ## Change Log
+
+### M2.1 - Product Configuration + Source Registry
+
+- Added Product and Source SQLAlchemy persistence, repositories, services, API endpoints, and Alembic migration `20260912_0002_m2_1_product_source_configuration`.
+- Added shared Pydantic create/update/read contracts and constrained source access methods.
+- Added explicit source approve/reject lifecycle methods and eligible-source filtering.
+- Added audit generation for meaningful configuration lifecycle changes.
+- Added Products and Source Registry Control Panel pages using the centralized API client.
+- Added idempotent bootstrap helpers and focused unit/API/contract tests.
+- Deferred Buyer Discovery execution, connectors, scraping, browser automation, AI calls, matching, verification, outreach, ADLS, ADF, and Databricks.
 
 ### M1.3 - Control Panel Operational Dashboard
 

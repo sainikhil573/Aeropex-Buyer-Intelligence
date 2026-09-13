@@ -2,7 +2,20 @@
 
 from typing import Annotated
 
-from aeropex_contracts.enums import AgentStatus, RunStatus
+from aeropex_contracts.enums import (
+    AgentStatus,
+    RunStatus,
+    SourceApprovalStatus,
+    SourceOperationalStatus,
+)
+from aeropex_contracts.models import (
+    ProductCreate,
+    ProductRead,
+    ProductUpdate,
+    SourceCreate,
+    SourceRead,
+    SourceUpdate,
+)
 from aeropex_workers.celery_app import operational_test_run_task
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -18,6 +31,14 @@ from aeropex_api.api.v1.schemas import (
 )
 from aeropex_api.db.models import Agent, AgentRun, ErrorEvent
 from aeropex_api.db.session import get_db_session
+from aeropex_api.services.configuration import (
+    ConfigurationError,
+    ConfigurationNotFoundError,
+    DuplicateConfigurationError,
+    InvalidConfigurationTransition,
+    ProductService,
+    SourceService,
+)
 from aeropex_api.services.run_lifecycle import AgentNotFoundError, AgentRunService
 
 api_router = APIRouter()
@@ -25,6 +46,16 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 LimitQuery = Annotated[int, Query(ge=1, le=100)]
 OffsetQuery = Annotated[int, Query(ge=0)]
 AgentIdQuery = Annotated[str | None, Query(min_length=1, max_length=64)]
+
+
+def _configuration_error_to_http(exc: ConfigurationError) -> HTTPException:
+    if isinstance(exc, ConfigurationNotFoundError):
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Configuration entity not found")
+    if isinstance(exc, DuplicateConfigurationError):
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    if isinstance(exc, InvalidConfigurationTransition):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @api_router.get("/health", tags=["system"])
@@ -35,6 +66,112 @@ async def versioned_health() -> dict[str, str]:
 @api_router.get("/agents", response_model=list[AgentResponse], tags=["agents"])
 def list_agents(session: SessionDep) -> list[Agent]:
     return session.query(Agent).order_by(Agent.agent_id).all()
+
+
+@api_router.get("/products", response_model=list[ProductRead], tags=["products"])
+def list_products(
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+    active: bool | None = None,
+    category: str | None = None,
+) -> list:
+    return ProductService(session).list_products(limit=limit, offset=offset, active=active, category=category)
+
+
+@api_router.get("/products/{product_id}", response_model=ProductRead, tags=["products"])
+def get_product(product_id: str, session: SessionDep) -> object:
+    product = ProductService(session).get_product(product_id)
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    return product
+
+
+@api_router.post("/products", response_model=ProductRead, status_code=status.HTTP_201_CREATED, tags=["products"])
+def create_product(payload: ProductCreate, session: SessionDep) -> object:
+    try:
+        return ProductService(session).create_product(payload)
+    except ConfigurationError as exc:
+        session.rollback()
+        raise _configuration_error_to_http(exc) from exc
+
+
+@api_router.patch("/products/{product_id}", response_model=ProductRead, tags=["products"])
+def update_product(product_id: str, payload: ProductUpdate, session: SessionDep) -> object:
+    try:
+        return ProductService(session).update_product(product_id, payload)
+    except ConfigurationError as exc:
+        session.rollback()
+        raise _configuration_error_to_http(exc) from exc
+
+
+@api_router.get("/sources/eligible", response_model=list[SourceRead], tags=["sources"])
+def list_eligible_sources(
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+) -> list:
+    return SourceService(session).list_eligible_sources(limit=limit, offset=offset)
+
+
+@api_router.get("/sources", response_model=list[SourceRead], tags=["sources"])
+def list_sources(
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+    approval_status: SourceApprovalStatus | None = None,
+    operational_status: SourceOperationalStatus | None = None,
+) -> list:
+    return SourceService(session).list_sources(
+        limit=limit,
+        offset=offset,
+        approval_status=approval_status,
+        operational_status=operational_status,
+    )
+
+
+@api_router.get("/sources/{source_id}", response_model=SourceRead, tags=["sources"])
+def get_source(source_id: str, session: SessionDep) -> object:
+    source = SourceService(session).get_source(source_id)
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source not found")
+    return source
+
+
+@api_router.post("/sources", response_model=SourceRead, status_code=status.HTTP_201_CREATED, tags=["sources"])
+def create_source(payload: SourceCreate, session: SessionDep) -> object:
+    try:
+        return SourceService(session).create_source(payload)
+    except ConfigurationError as exc:
+        session.rollback()
+        raise _configuration_error_to_http(exc) from exc
+
+
+@api_router.patch("/sources/{source_id}", response_model=SourceRead, tags=["sources"])
+def update_source(source_id: str, payload: SourceUpdate, session: SessionDep) -> object:
+    try:
+        return SourceService(session).update_source(source_id, payload)
+    except ConfigurationError as exc:
+        session.rollback()
+        raise _configuration_error_to_http(exc) from exc
+
+
+@api_router.post("/sources/{source_id}/approve", response_model=SourceRead, tags=["sources"])
+def approve_source(source_id: str, session: SessionDep) -> object:
+    try:
+        return SourceService(session).approve_source(source_id)
+    except ConfigurationError as exc:
+        session.rollback()
+        raise _configuration_error_to_http(exc) from exc
+
+
+@api_router.post("/sources/{source_id}/reject", response_model=SourceRead, tags=["sources"])
+def reject_source(source_id: str, session: SessionDep) -> object:
+    try:
+        return SourceService(session).reject_source(source_id)
+    except ConfigurationError as exc:
+        session.rollback()
+        raise _configuration_error_to_http(exc) from exc
 
 
 @api_router.get("/agents/{agent_id}", response_model=AgentResponse, tags=["agents"])

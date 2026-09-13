@@ -64,6 +64,13 @@ class SourceOperationalStatus(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class SourceAccessMethod(StrEnum):
+    API = "api"
+    HTTP = "http"
+    BROWSER = "browser"
+    MANUAL = "manual"
+
+
 class ErrorSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"

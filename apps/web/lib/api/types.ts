@@ -9,6 +9,9 @@ export type RunStatus =
 export type TriggerType = "manual" | "scheduled" | "event" | "retry" | "system";
 export type AuthorityLevel = "green" | "yellow" | "red";
 export type ErrorSeverity = "info" | "warning" | "error" | "critical";
+export type SourceApprovalStatus = "candidate" | "approved" | "rejected";
+export type SourceOperationalStatus = "active" | "degraded" | "disabled" | "unavailable";
+export type SourceAccessMethod = "api" | "http" | "browser" | "manual";
 
 export type Agent = {
   agent_id: string;
@@ -72,3 +75,62 @@ export type ReadinessResponse = {
   service: string;
   checks: Record<string, { status: string; detail?: string | null }>;
 };
+
+export type Product = {
+  product_id: string;
+  category: string;
+  name: string;
+  aliases: string[];
+  variants: string[];
+  hs_codes: string[];
+  priority: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProductCreate = {
+  product_id: string;
+  category: string;
+  name: string;
+  aliases?: string[];
+  variants?: string[];
+  hs_codes?: string[];
+  priority?: number;
+  active?: boolean;
+};
+
+export type ProductUpdate = Partial<Omit<ProductCreate, "product_id">>;
+
+export type Source = {
+  source_id: string;
+  name: string;
+  domain: string | null;
+  country: string | null;
+  source_type: string;
+  access_method: SourceAccessMethod;
+  approval_status: SourceApprovalStatus;
+  operational_status: SourceOperationalStatus;
+  reliability_score: string | number | null;
+  last_checked_at: string | null;
+  notes: string | null;
+  product_relevance: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type SourceCreate = {
+  source_id: string;
+  name: string;
+  domain?: string | null;
+  country?: string | null;
+  source_type: string;
+  access_method: SourceAccessMethod;
+  operational_status?: SourceOperationalStatus;
+  reliability_score?: string | number | null;
+  last_checked_at?: string | null;
+  notes?: string | null;
+  product_relevance?: string[];
+};
+
+export type SourceUpdate = Partial<Omit<SourceCreate, "source_id">>;

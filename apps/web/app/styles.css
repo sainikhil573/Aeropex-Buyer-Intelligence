@@ -237,6 +237,61 @@ h2 {
   overflow-x: auto;
 }
 
+.formGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  padding: 16px;
+}
+
+label {
+  color: #526071;
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 6px;
+}
+
+input,
+select {
+  background: #ffffff;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  color: #17202c;
+  font: inherit;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+input:disabled {
+  background: #f2f5f8;
+  color: #647287;
+}
+
+.formActions {
+  align-items: flex-end;
+  display: flex;
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rowActions button,
+.formActions button {
+  min-height: 34px;
+  padding: 7px 11px;
+}
+
+.mutedText {
+  color: #647287;
+  font-size: 0.78rem;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
 table {
   border-collapse: collapse;
   min-width: 860px;
@@ -303,7 +358,8 @@ th {
 
 @media (max-width: 1100px) {
   .metricGrid,
-  .detailGrid {
+  .detailGrid,
+  .formGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -335,7 +391,8 @@ th {
   }
 
   .metricGrid,
-  .detailGrid {
+  .detailGrid,
+  .formGrid {
     grid-template-columns: 1fr;
   }
 }

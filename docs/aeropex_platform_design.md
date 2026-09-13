@@ -844,3 +844,35 @@ Deferred:
 - Verification, matching, outreach, RFQ automation
 - Authentication and RBAC
 - WebSockets and other real-time infrastructure
+
+## M2.1 - Product Configuration & Source Registry
+
+Added the governed configuration layer for Buyer Discovery consumers without implementing discovery execution.
+
+Implemented:
+
+- Product persistence in PostgreSQL with stable IDs, category, name, aliases, variants, HS codes, priority, active status, and UTC timestamps.
+- Source Registry persistence in PostgreSQL with source metadata, approval status, operational status, reliability score, last checked timestamp, notes, and product relevance.
+- Alembic migration `20260912_0002_m2_1_product_source_configuration`.
+- Product and Source repository/service layers following the M1 API -> service -> repository -> SQLAlchemy pattern.
+- FastAPI endpoints under `/api/v1/products` and `/api/v1/sources`.
+- Explicit source governance actions for candidate approval and rejection.
+- Reusable eligible-source query where a source is eligible only when `approval_status == approved` and `operational_status == active`.
+- Audit events for product creation/update/activation/deactivation and source creation/approval/rejection/operational status changes.
+- Control Panel Products and Source Registry pages with create/edit/lifecycle actions, loading, error, empty, and refresh states.
+- Idempotent product/source bootstrap data. Product HS code lists are intentionally empty where no trusted project source exists.
+
+Ownership decision:
+
+Products and sources are platform-owned control-plane data. Buyer Discovery may read approved configuration in a future milestone, but it must not arbitrarily create or mutate production product/source configuration during discovery runs.
+
+Deferred:
+
+- Buyer scraping
+- Browser automation
+- Web crawling
+- External source API calls
+- AI extraction
+- Buyer matching, verification, and outreach
+- Discovery job scheduling
+- ADLS ingestion, ADF, Databricks, and Bronze observations

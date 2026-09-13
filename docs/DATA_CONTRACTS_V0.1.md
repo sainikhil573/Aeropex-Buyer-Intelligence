@@ -162,7 +162,20 @@ unavailable
 
 ---
 
-## 3.9 ErrorSeverity
+## 3.9 SourceAccessMethod
+
+```text
+api
+http
+browser
+manual
+```
+
+Connectors are not implemented in M2.1. The access method records governed metadata only.
+
+---
+
+## 3.10 ErrorSeverity
 
 ```text
 info
@@ -278,11 +291,15 @@ Represents a source available to the discovery platform.
   "domain": "example.com",
   "country": "AE",
   "source_type": "trade_portal",
-  "access_method": "public_http",
-  "approval_status": "approved",
+  "access_method": "http",
+  "approval_status": "candidate",
   "operational_status": "active",
-  "reliability_score": 0.82,
-  "last_checked_at": "2026-09-12T01:00:00Z"
+  "reliability_score": null,
+  "last_checked_at": null,
+  "notes": "Candidate source awaiting human review.",
+  "product_relevance": [],
+  "created_at": "2026-09-12T00:00:00Z",
+  "updated_at": "2026-09-12T00:00:00Z"
 }
 ```
 
@@ -293,9 +310,11 @@ Represents a source available to the discovery platform.
 | `source_id` | string |
 | `name` | string |
 | `source_type` | string |
-| `access_method` | string |
+| `access_method` | SourceAccessMethod |
 | `approval_status` | SourceApprovalStatus |
 | `operational_status` | SourceOperationalStatus |
+| `created_at` | datetime |
+| `updated_at` | datetime |
 
 ## Optional Fields
 
@@ -305,6 +324,27 @@ Represents a source available to the discovery platform.
 | `country` | ISO country code / null |
 | `reliability_score` | decimal 0.0–1.0 / null |
 | `last_checked_at` | datetime / null |
+| `notes` | string / null |
+| `product_relevance` | array[string] |
+
+## Governance Rules
+
+New sources start as `candidate`. Human-controlled lifecycle actions may transition:
+
+```text
+candidate -> approved
+candidate -> rejected
+```
+
+The reusable eligibility rule for future Buyer Discovery is:
+
+```text
+approval_status == approved
+AND
+operational_status == active
+```
+
+Approval status and operational status are independent; an approved source may still be degraded, disabled, or unavailable.
 
 ---
 
@@ -322,20 +362,14 @@ Products must be configuration-driven and must not be hard-coded into individual
   "category": "spices",
   "name": "Red Chilli",
   "aliases": [
-    "red chili",
-    "dried chilli",
-    "dry red chilli"
+    "red chili"
   ],
-  "variants": [
-    "whole",
-    "powder"
-  ],
-  "hs_codes": [
-    "090421",
-    "090422"
-  ],
+  "variants": [],
+  "hs_codes": [],
   "priority": 1,
-  "active": true
+  "active": true,
+  "created_at": "2026-09-12T00:00:00Z",
+  "updated_at": "2026-09-12T00:00:00Z"
 }
 ```
 
@@ -347,6 +381,8 @@ Products must be configuration-driven and must not be hard-coded into individual
 | `category` | string |
 | `name` | string |
 | `active` | boolean |
+| `created_at` | datetime |
+| `updated_at` | datetime |
 
 ## Optional Fields
 
@@ -356,6 +392,10 @@ Products must be configuration-driven and must not be hard-coded into individual
 | `variants` | array[string] |
 | `hs_codes` | array[string] |
 | `priority` | integer / null |
+
+## Configuration Rules
+
+Products are platform-owned configuration entities. Product names and categories are required, list fields may be empty, and unknown HS codes must remain absent rather than fabricated. Product lifecycle should prefer `active=false` over destructive deletion so historical references remain stable.
 
 ---
 
@@ -1203,3 +1243,15 @@ Implemented the first functional Aeropex Control Panel using the existing M1.2 o
 Added API presentation support for bounded error listing, operational summary counts, and agent-filtered run listing. No new buyer, supplier, source observation, matching, outreach, or approval contracts were introduced in this milestone.
 
 Buyer Discovery remains registered for operational testing only; actual buyer discovery and source collection remain deferred.
+
+## M2.1 Product Configuration & Source Registry
+
+Implemented platform-owned configuration contracts and persistence for:
+
+- `ProductCreate`, `ProductUpdate`, `ProductRead`
+- `SourceCreate`, `SourceUpdate`, `SourceRead`
+- `SourceAccessMethod`
+
+Products and sources are governed control-plane data exposed through FastAPI and the Control Panel. Buyer Discovery may consume approved configuration in later milestones, but it does not own or arbitrarily mutate production product/source configuration.
+
+M2.1 explicitly does not implement source connectors, buyer scraping, browser automation, AI extraction, buyer matching, verification, outreach, ADLS ingestion, ADF, Databricks, or scheduled discovery execution.
