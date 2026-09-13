@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
+  canonicalizeObservation,
   createOperationalTestRun,
   getObservation,
   getObservationReview,
@@ -114,6 +115,21 @@ describe("API client", () => {
         method: "PATCH",
         body: JSON.stringify({ status: "needs_review", review_notes: "Check source" }),
       }),
+    );
+  });
+
+  it("posts observation canonicalization requests", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ observation_id: "OBS-1", status: "created", buyer_id: "BUY-1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await canonicalizeObservation("OBS-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/observations/OBS-1/canonicalize",
+      expect.objectContaining({ method: "POST" }),
     );
   });
 });

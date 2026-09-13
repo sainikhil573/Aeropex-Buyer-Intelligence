@@ -10,6 +10,7 @@ from aeropex_contracts.enums import (
     RunStatus,
     SourceApprovalStatus,
     SourceOperationalStatus,
+    VerificationStatus,
 )
 from aeropex_contracts.models import (
     ConnectorResult,
@@ -28,6 +29,9 @@ from sqlalchemy.orm import Session
 from aeropex_api.api.v1.schemas import (
     AgentResponse,
     AgentRunResponse,
+    BuyerRequirementResponse,
+    BuyerResponse,
+    CanonicalizationResultResponse,
     ConnectorResultResponse,
     ConnectorTestRequest,
     ErrorEventResponse,
@@ -39,8 +43,22 @@ from aeropex_api.api.v1.schemas import (
     SourceObservationResponse,
     UpdateObservationReviewRequest,
 )
-from aeropex_api.db.models import Agent, AgentRun, ErrorEvent, Source, SourceObservation
+from aeropex_api.db.models import (
+    Agent,
+    AgentRun,
+    Buyer,
+    BuyerRequirement,
+    ErrorEvent,
+    Source,
+    SourceObservation,
+)
 from aeropex_api.db.session import get_db_session
+from aeropex_api.services.buyer_canonicalization import (
+    BuyerCanonicalizationService,
+)
+from aeropex_api.services.buyer_canonicalization import (
+    ObservationNotFoundError as CanonicalizationObservationNotFoundError,
+)
 from aeropex_api.services.configuration import (
     ConfigurationError,
     ConfigurationNotFoundError,
@@ -89,6 +107,14 @@ def _review_response(service: ObservationReviewService, observation_id: str) -> 
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found")
         return ObservationReviewResponse(**service.default_review_state(observation_id))
     return ObservationReviewResponse.model_validate(review, from_attributes=True)
+
+
+def _buyer_response(session: Session, buyer: Buyer) -> BuyerResponse:
+    response = BuyerResponse.model_validate(buyer, from_attributes=True)
+    requirements_count = (
+        session.query(BuyerRequirement).filter(BuyerRequirement.buyer_id == buyer.buyer_id).count()
+    )
+    return response.model_copy(update={"requirements_count": requirements_count})
 
 
 def _configuration_error_to_http(exc: ConfigurationError) -> HTTPException:
@@ -282,6 +308,82 @@ def update_observation_review(
     except ObservationNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found") from exc
     return ObservationReviewResponse.model_validate(review, from_attributes=True)
+
+
+@api_router.post(
+    "/observations/{observation_id}/canonicalize",
+    response_model=CanonicalizationResultResponse,
+    tags=["observations"],
+)
+def canonicalize_observation(observation_id: str, session: SessionDep) -> CanonicalizationResultResponse:
+    service = BuyerCanonicalizationService(session)
+    try:
+        result = service.canonicalize_observation(observation_id)
+        return CanonicalizationResultResponse.model_validate(result.model_dump())
+    except CanonicalizationObservationNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found") from exc
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Canonicalization failed",
+        ) from exc
+
+
+@api_router.get("/buyers", response_model=list[BuyerResponse], tags=["buyers"])
+def list_buyers(
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+    country: str | None = None,
+    verification_status: VerificationStatus | None = None,
+    company_name: str | None = None,
+) -> list[BuyerResponse]:
+    buyers = BuyerCanonicalizationService(session).list_buyers(
+        limit=limit,
+        offset=offset,
+        country=country,
+        verification_status=verification_status,
+        company_name=company_name,
+    )
+    return [_buyer_response(session, buyer) for buyer in buyers]
+
+
+@api_router.get("/buyers/{buyer_id}", response_model=BuyerResponse, tags=["buyers"])
+def get_buyer(buyer_id: str, session: SessionDep) -> BuyerResponse:
+    buyer = BuyerCanonicalizationService(session).get_buyer(buyer_id)
+    if buyer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found")
+    return _buyer_response(session, buyer)
+
+
+@api_router.get(
+    "/buyers/{buyer_id}/requirements",
+    response_model=list[BuyerRequirementResponse],
+    tags=["buyers"],
+)
+def list_buyer_requirements(
+    buyer_id: str,
+    session: SessionDep,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
+) -> list[BuyerRequirement]:
+    service = BuyerCanonicalizationService(session)
+    if service.get_buyer(buyer_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buyer not found")
+    return service.list_requirements(buyer_id, limit=limit, offset=offset)
+
+
+@api_router.get(
+    "/requirements/{requirement_id}",
+    response_model=BuyerRequirementResponse,
+    tags=["buyers"],
+)
+def get_requirement(requirement_id: str, session: SessionDep) -> BuyerRequirement:
+    requirement = BuyerCanonicalizationService(session).get_requirement(requirement_id)
+    if requirement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requirement not found")
+    return requirement
 
 
 @api_router.post("/sources", response_model=SourceRead, status_code=status.HTTP_201_CREATED, tags=["sources"])

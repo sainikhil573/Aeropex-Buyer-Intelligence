@@ -8,6 +8,7 @@ from aeropex_contracts import (
     AuthorityLevel,
     Buyer,
     BuyerRequirement,
+    BuyerRequirementStatus,
     ConnectorRequest,
     ConnectorResult,
     ConnectorStatus,
@@ -79,6 +80,7 @@ def test_confidence_score_boundaries(score: str) -> None:
     buyer = Buyer(
         buyer_id="BUY-000001",
         company_name="ABC Foods LLC",
+        normalized_company_name="abc foods",
         verification_status=VerificationStatus.UNVERIFIED,
         created_at=NOW,
         updated_at=NOW,
@@ -145,10 +147,12 @@ def test_nullable_optional_fields() -> None:
         buyer_id="BUY-000001",
         product_id="PRD-RED-CHILLI",
         requirement_text="Seeking dried red chilli.",
-        status="open",
+        status=BuyerRequirementStatus.ACTIVE,
         quantity=None,
         destination=None,
         posted_at=None,
+        created_at=NOW,
+        updated_at=NOW,
     )
 
     assert requirement.quantity is None
@@ -160,6 +164,7 @@ def test_serialization_deserialization() -> None:
     buyer = Buyer(
         buyer_id="BUY-000001",
         company_name="ABC Foods LLC",
+        normalized_company_name="abc foods",
         country="AE",
         website="https://example.com",
         company_type="importer_distributor",
@@ -180,6 +185,7 @@ def test_timezone_aware_datetime_required() -> None:
         Buyer(
             buyer_id="BUY-000001",
             company_name="ABC Foods LLC",
+            normalized_company_name="abc foods",
             verification_status=VerificationStatus.UNVERIFIED,
             created_at=datetime(2026, 9, 12, 1, 30),  # noqa: DTZ001
             updated_at=NOW,

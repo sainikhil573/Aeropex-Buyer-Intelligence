@@ -15,6 +15,13 @@ export type SourceAccessMethod = "api" | "http" | "browser" | "manual";
 export type ExtractionStatus = "success" | "partial" | "unstructured" | "failed";
 export type EvidenceType = "page_text" | "listing" | "directory_entry" | "api_record" | "manual_entry" | "unknown";
 export type ObservationReviewStatus = "unreviewed" | "needs_review" | "accepted" | "rejected";
+export type EntityResolutionStatus =
+  | "created"
+  | "matched"
+  | "ambiguous"
+  | "ineligible"
+  | "already_canonicalized"
+  | "failed";
 
 export type Agent = {
   agent_id: string;
@@ -190,4 +197,14 @@ export type ObservationReview = {
 export type UpdateObservationReview = {
   status: ObservationReviewStatus;
   review_notes?: string | null;
+};
+
+export type CanonicalizationResult = {
+  status: EntityResolutionStatus;
+  observation_id: string;
+  buyer_id: string | null;
+  requirement_id: string | null;
+  matched_existing_buyer: boolean;
+  candidate_buyer_ids: string[];
+  reason: string | null;
 };

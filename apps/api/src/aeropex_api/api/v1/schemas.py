@@ -8,13 +8,16 @@ from typing import Any
 from aeropex_contracts.enums import (
     AgentStatus,
     AuthorityLevel,
+    BuyerRequirementStatus,
     ConnectorStatus,
+    EntityResolutionStatus,
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
     ObservationReviewStatus,
     RunStatus,
     TriggerType,
+    VerificationStatus,
 )
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -126,6 +129,50 @@ class SourceObservationResponse(BaseModel):
     reviewed_at: datetime | None = None
     review_created_at: datetime | None = None
     review_updated_at: datetime | None = None
+
+
+class BuyerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    buyer_id: str
+    company_name: str
+    normalized_company_name: str
+    country: str | None
+    website: str | None
+    primary_domain: str | None
+    company_type: str | None
+    verification_status: VerificationStatus
+    confidence_score: float | None
+    created_at: datetime
+    updated_at: datetime
+    requirements_count: int | None = None
+
+
+class BuyerRequirementResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    requirement_id: str
+    buyer_id: str
+    product_id: str | None
+    requirement_text: str | None
+    quantity: float | None
+    unit: str | None
+    specifications: dict[str, Any]
+    destination: str | None
+    posted_at: datetime | None
+    status: BuyerRequirementStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class CanonicalizationResultResponse(BaseModel):
+    status: EntityResolutionStatus
+    observation_id: str
+    buyer_id: str | None
+    requirement_id: str | None
+    matched_existing_buyer: bool
+    candidate_buyer_ids: list[str]
+    reason: str | None
 
 
 class ObservationReviewResponse(BaseModel):

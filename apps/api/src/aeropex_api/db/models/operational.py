@@ -8,12 +8,14 @@ from typing import Any
 from aeropex_contracts.enums import (
     AgentStatus,
     AuthorityLevel,
+    BuyerRequirementStatus,
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
     ObservationReviewStatus,
     RunStatus,
     TriggerType,
+    VerificationStatus,
 )
 from sqlalchemy import (
     Boolean,
@@ -148,6 +150,66 @@ class ErrorEvent(Base):
 
     run: Mapped[AgentRun | None] = relationship(back_populates="errors")
     agent: Mapped[Agent | None] = relationship(back_populates="errors")
+
+
+class Buyer(Base):
+    __tablename__ = "buyers"
+    __table_args__ = (
+        CheckConstraint(
+            "confidence_score IS NULL OR (confidence_score >= 0 AND confidence_score <= 1)",
+            name="ck_buyers_confidence_score_range",
+        ),
+        Index("ix_buyers_normalized_country", "normalized_company_name", "country"),
+    )
+
+    buyer_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    company_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_company_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    country: Mapped[str | None] = mapped_column(String(100), index=True)
+    website: Mapped[str | None] = mapped_column(String(2048))
+    primary_domain: Mapped[str | None] = mapped_column(String(255), index=True)
+    company_type: Mapped[str | None] = mapped_column(String(100))
+    verification_status: Mapped[VerificationStatus] = mapped_column(
+        Enum(VerificationStatus, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        default=VerificationStatus.UNVERIFIED,
+        index=True,
+    )
+    confidence_score: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    requirements: Mapped[list[BuyerRequirement]] = relationship(back_populates="buyer")
+
+
+class BuyerRequirement(Base):
+    __tablename__ = "buyer_requirements"
+    __table_args__ = (
+        CheckConstraint("quantity IS NULL OR quantity >= 0", name="ck_buyer_requirements_quantity_nonnegative"),
+        Index("ix_buyer_requirements_buyer_status", "buyer_id", "status"),
+    )
+
+    requirement_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    buyer_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("buyers.buyer_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    product_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    requirement_text: Mapped[str | None] = mapped_column(Text)
+    quantity: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(50))
+    specifications: Mapped[dict[str, Any]] = mapped_column(json_type, nullable=False, default=dict)
+    destination: Mapped[str | None] = mapped_column(String(255))
+    posted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    status: Mapped[BuyerRequirementStatus] = mapped_column(
+        Enum(BuyerRequirementStatus, values_callable=enum_values, native_enum=False, length=32),
+        nullable=False,
+        default=BuyerRequirementStatus.ACTIVE,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    buyer: Mapped[Buyer] = relationship(back_populates="requirements")
 
 
 class SourceObservation(Base):

@@ -6,7 +6,14 @@ from datetime import UTC
 import pytest
 from aeropex_api.core.config import Settings
 from aeropex_api.db.base import Base, import_models
-from aeropex_api.db.models import ErrorEvent, Product, Source, SourceObservation
+from aeropex_api.db.models import (
+    Buyer,
+    BuyerRequirement,
+    ErrorEvent,
+    Product,
+    Source,
+    SourceObservation,
+)
 from aeropex_api.db.session import get_db_session
 from aeropex_api.main import create_app
 from aeropex_api.services.configuration import ProductService, SourceService
@@ -132,8 +139,8 @@ def test_successful_deterministic_extraction_persists_observation(session: Sessi
     assert observation.buyer_id is None
     assert observation.requirement_id is None
     assert session.query(SourceObservation).count() == 1
-    assert "buyers" not in Base.metadata.tables
-    assert "buyer_requirements" not in Base.metadata.tables
+    assert session.query(Buyer).count() == 0
+    assert session.query(BuyerRequirement).count() == 0
 
 
 def test_partial_extraction_and_missing_fields_remain_null(session: Session) -> None:

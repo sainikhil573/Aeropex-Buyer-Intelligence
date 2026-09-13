@@ -10,7 +10,9 @@ from aeropex_contracts.enums import (
     AgentStatus,
     ApprovalStatus,
     AuthorityLevel,
+    BuyerRequirementStatus,
     ConnectorStatus,
+    EntityResolutionStatus,
     ErrorSeverity,
     EvidenceType,
     ExtractionStatus,
@@ -284,26 +286,43 @@ class ExtractionResult(ContractModel):
 class Buyer(ContractModel):
     buyer_id: str
     company_name: str
+    normalized_company_name: str
     verification_status: VerificationStatus
     created_at: datetime
     updated_at: datetime
-    country: str | None = Field(default=None, min_length=2, max_length=2)
+    country: str | None = None
     website: AnyUrl | None = None
     company_type: str | None = None
     confidence_score: Score | None = Field(default=None, ge=0, le=1)
+    primary_domain: str | None = None
 
 
 class BuyerRequirement(ContractModel):
     requirement_id: str
     buyer_id: str
-    product_id: str
-    requirement_text: str
-    status: str
+    status: BuyerRequirementStatus
+    created_at: datetime
+    updated_at: datetime
+    product_id: str | None = None
+    requirement_text: str | None = None
     quantity: Decimal | None = None
     unit: str | None = None
     specifications: dict[str, Any] = Field(default_factory=dict)
     destination: str | None = None
     posted_at: datetime | None = None
+
+
+class EntityResolutionResult(ContractModel):
+    status: EntityResolutionStatus
+    observation_id: str
+    buyer_id: str | None = None
+    candidate_buyer_ids: list[str] = Field(default_factory=list)
+    reason: str | None = None
+
+
+class CanonicalizationResult(EntityResolutionResult):
+    requirement_id: str | None = None
+    matched_existing_buyer: bool = False
 
 
 class SourceObservation(ContractModel):

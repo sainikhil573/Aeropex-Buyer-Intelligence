@@ -43,6 +43,21 @@ class VerificationStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class BuyerRequirementStatus(StrEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    CLOSED = "closed"
+
+
+class EntityResolutionStatus(StrEnum):
+    CREATED = "created"
+    MATCHED = "matched"
+    AMBIGUOUS = "ambiguous"
+    INELIGIBLE = "ineligible"
+    ALREADY_CANONICALIZED = "already_canonicalized"
+    FAILED = "failed"
+
+
 class ApprovalStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"

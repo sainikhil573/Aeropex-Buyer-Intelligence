@@ -1028,3 +1028,55 @@ Deferred:
 - Outreach or RFQ workflows
 - AI/Astra/LLM usage
 - New connectors or extractors
+
+## M2.5 - Canonical Buyer + BuyerRequirement + Entity Resolution
+
+M2.5 adds the first canonical business-entity layer for accepted observations.
+
+Implemented:
+
+- PostgreSQL persistence for canonical `Buyer` and `BuyerRequirement` records.
+- Deterministic company-name normalization that preserves the original observed company name.
+- Conservative entity resolution in `BuyerCanonicalizationService`.
+- Canonicalization endpoint: `POST /api/v1/observations/{observation_id}/canonicalize`.
+- Buyer read endpoints: `GET /api/v1/buyers`, `GET /api/v1/buyers/{buyer_id}`.
+- Requirement read endpoints: `GET /api/v1/buyers/{buyer_id}/requirements`, `GET /api/v1/requirements/{requirement_id}`.
+- Observation detail UI visibility for canonicalization state, linked IDs, and ambiguous candidate IDs.
+- Audit events for buyer creation/matching, requirement creation, observation linkage, and ambiguous resolution.
+
+Architecture responsibility:
+
+```text
+SourceObservation
+    immutable source evidence
+
+ObservationReview
+    mutable human workflow decision
+
+Buyer
+    canonical company entity
+
+BuyerRequirement
+    canonical purchasing requirement
+```
+
+Accepted means eligible for canonicalization. Accepted does not mean verified. Canonicalized does not mean verified. New buyers default to `verification_status = unverified`.
+
+Entity resolution V0.1 auto-matches only:
+
+- exact normalized company name plus exact normalized country
+- exact normalized primary domain when available
+
+If multiple buyers satisfy a deterministic rule, the result is `ambiguous`; the observation remains unlinked and no buyer or requirement is created. Weak signals, fuzzy similarity, contact data, same product, same country alone, and LLM similarity do not auto-merge.
+
+SourceObservation evidence content remains immutable. M2.5 permits controlled updates only to `buyer_id` and `requirement_id` linkage metadata.
+
+M2.5 non-goals:
+
+- Company verification
+- Contact verification or enrichment
+- External web research
+- AI/Astra/LLM matching
+- Supplier discovery or buyer-supplier matching
+- Outreach, email, RFQ, or scheduling
+- Full duplicate-resolution UI

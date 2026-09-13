@@ -1600,3 +1600,26 @@ Implemented review workflow contracts:
 Observation review state is mutable operational metadata stored separately from immutable SourceObservation evidence. Accepted observations are approved for later processing only and must not be presented as verified buyers. Rejected observations are not deleted.
 
 M2.4 explicitly does not perform Buyer or BuyerRequirement creation, entity resolution, deduplication, buyer verification, contact enrichment, matching, outreach, AI/Astra usage, new connectors, or new extractors.
+
+## M2.5 Canonical Buyer + BuyerRequirement + Entity Resolution
+
+Implemented canonical entity contracts and statuses:
+
+- `BuyerRequirementStatus`
+- `EntityResolutionStatus`
+- Expanded `Buyer`
+- Expanded `BuyerRequirement`
+- `EntityResolutionResult`
+- `CanonicalizationResult`
+
+`Buyer` is the canonical company entity. Required identity fields include `company_name` and `normalized_company_name`; the original observed company name is preserved. New buyers default to `verification_status = unverified`. Canonicalization is not verification.
+
+`BuyerRequirement` is the canonical purchasing requirement. `product_id`, `requirement_text`, `quantity`, `unit`, `specifications`, `destination`, and `posted_at` are mapped only from explicit observation content. Missing values remain null. Status defaults to `active`.
+
+`SourceObservation` remains immutable source evidence. M2.5 permits controlled updates only to `buyer_id` and `requirement_id` linkage metadata after canonicalization. Evidence fields such as `raw_text`, `source_url`, `captured_at`, `evidence_type`, and extracted fields must not be modified by canonicalization.
+
+`ObservationReview` remains the human workflow decision. Only `accepted` observations are eligible for canonicalization; `accepted` does not mean verified.
+
+Entity resolution V0.1 is deterministic and conservative. It auto-matches only exact normalized company name plus exact normalized country, or exact normalized primary domain when present. Ambiguous matches return candidate buyer IDs and leave the observation unlinked.
+
+M2.5 explicitly does not perform company verification, contact verification, contact enrichment, external research, AI/Astra/LLM matching, supplier discovery, buyer-supplier matching, outreach, RFQs, ADLS/ADF/Databricks work, production scheduling, or full duplicate-resolution UI.

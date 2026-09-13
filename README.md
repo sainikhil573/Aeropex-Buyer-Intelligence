@@ -2,9 +2,9 @@
 
 Aeropex Buyer Intelligence is an internal, production-oriented data and operations platform for discovering, preserving, validating, and eventually acting on buyer intelligence for Aeropex Exports.
 
-Current milestone: **M2.4 Buyer Intelligence UI + Observation Review Workflow**.
+Current milestone: **M2.5 Canonical Buyer + BuyerRequirement + Entity Resolution**.
 
-Bounded deterministic extraction for controlled JSON records is implemented, and persisted SourceObservations can be reviewed in the Control Panel. Buyer verification, entity resolution, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
+Bounded deterministic extraction, SourceObservation evidence persistence, human review workflow, and conservative canonical buyer creation/matching are implemented. Buyer verification, contact verification/enrichment, supplier matching, scraping/browser automation, business workflows, and AI/model integrations are **not implemented yet**.
 
 ## Architecture Summary
 
@@ -16,7 +16,8 @@ Bounded deterministic extraction for controlled JSON records is implemented, and
 - Configuration persistence: Product and Source Registry control-plane entities.
 - Connectors: governed connector abstraction and controlled HTTP connector for approved active sources.
 - Extraction: bounded deterministic extractor layer that creates immutable SourceObservation evidence from successful ConnectorResult payloads.
-- Observation Review: mutable review workflow metadata for SourceObservation records without changing evidence or creating canonical buyer entities.
+- Observation Review: mutable review workflow metadata for SourceObservation records without changing evidence.
+- Canonical Buyer Layer: accepted observations can be conservatively resolved into `Buyer` and optional `BuyerRequirement` records, with linkage metadata attached to the observation.
 - Run lifecycle: queued, running, completed, completed_with_warnings, failed, and cancelled.
 - Async execution foundation: Redis and Celery with safe operational test tasks.
 - Control Panel: operational overview, agent inspection, run inspection, error visibility, and system health.
@@ -105,6 +106,11 @@ Operational endpoints:
 - `GET /api/v1/observations/{observation_id}`
 - `GET /api/v1/observations/{observation_id}/review`
 - `PATCH /api/v1/observations/{observation_id}/review`
+- `POST /api/v1/observations/{observation_id}/canonicalize`
+- `GET /api/v1/buyers?limit=50&offset=0`
+- `GET /api/v1/buyers/{buyer_id}`
+- `GET /api/v1/buyers/{buyer_id}/requirements`
+- `GET /api/v1/requirements/{requirement_id}`
 
 `POST /api/v1/runs` queues only the safe operational test task. It does not start Buyer Discovery.
 
@@ -129,6 +135,8 @@ The M2.1 migration adds Product and Source Registry tables and seeds idempotent 
 The M2.3 migration adds append-only `source_observations` evidence persistence for extracted candidate observations.
 
 The M2.4 migration adds one active `observation_reviews` workflow row per observation.
+
+The M2.5 migration adds canonical `buyers` and `buyer_requirements` tables with conservative indexes for deterministic entity resolution.
 
 To verify downgrade and upgrade locally:
 
@@ -211,6 +219,20 @@ SourceObservation -> Buyer Intelligence Inbox -> Open Observation -> Review Evid
 Review statuses are `unreviewed`, `needs_review`, `accepted`, and `rejected`. Review state is stored separately in `ObservationReview`; it is mutable workflow metadata, while SourceObservation evidence remains unchanged. `accepted` is not verified, and `rejected` is not deleted.
 
 Each review mutation records an `AuditEvent` with before and after review state. The local V0.1 actor placeholder is `local-admin` until full authentication/RBAC exists.
+
+## Canonical Buyer Entity Resolution
+
+M2.5 introduces the first canonical business-entity layer:
+
+```text
+Accepted SourceObservation -> Entity Resolution -> Buyer -> BuyerRequirement -> Observation Linkage -> AuditEvent
+```
+
+`SourceObservation` remains immutable evidence. M2.5 only allows controlled updates to `buyer_id` and `requirement_id` linkage metadata after canonicalization. It never modifies `raw_text`, `source_url`, `captured_at`, `evidence_type`, or extracted fields.
+
+`ObservationReview` is human workflow state. `Buyer` is the canonical company entity. `BuyerRequirement` is the canonical purchasing requirement. `accepted` means eligible for canonicalization; it does not mean the company is verified. New buyers always default to `verification_status = unverified`.
+
+Entity resolution V0.1 is deterministic and conservative. It auto-matches only exact normalized company name plus exact normalized country, or exact normalized primary domain when present. Multiple matches return `ambiguous` and leave the observation unlinked. Weak/fuzzy signals do not auto-merge.
 
 ## Start the Next.js Frontend
 

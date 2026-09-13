@@ -10,7 +10,7 @@ from aeropex_api.connectors.factory import ConnectorFactory
 from aeropex_api.connectors.http import HttpConnector
 from aeropex_api.core.config import Settings
 from aeropex_api.db.base import Base, import_models
-from aeropex_api.db.models import ErrorEvent, Source
+from aeropex_api.db.models import Buyer, BuyerRequirement, ErrorEvent, Source
 from aeropex_api.db.session import get_db_session
 from aeropex_api.main import create_app
 from aeropex_api.services.configuration import SourceService
@@ -335,8 +335,8 @@ def test_no_buyer_entities_are_created(session: Session) -> None:
         )
     )
 
-    assert "buyers" not in Base.metadata.tables
-    assert "buyer_requirements" not in Base.metadata.tables
+    assert session.query(Buyer).count() == 0
+    assert session.query(BuyerRequirement).count() == 0
 
 
 def test_connector_test_api_enforces_governance(session: Session) -> None:

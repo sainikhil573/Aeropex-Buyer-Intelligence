@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { formatDateTime } from "@/components/format";
 import { StatusBadge } from "@/components/StatusBadge";
-import { getObservation, updateObservationReview } from "@/lib/api/client";
-import type { ObservationReviewStatus, SourceObservation } from "@/lib/api/types";
+import { canonicalizeObservation, getObservation, updateObservationReview } from "@/lib/api/client";
+import type { CanonicalizationResult, ObservationReviewStatus, SourceObservation } from "@/lib/api/types";
 
 export default function ObservationDetailPage({ params }: { params: { observationId: string } }) {
   const [observation, setObservation] = useState<SourceObservation | null>(null);
@@ -13,6 +13,8 @@ export default function ObservationDetailPage({ params }: { params: { observatio
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [canonicalizing, setCanonicalizing] = useState(false);
+  const [canonicalizationResult, setCanonicalizationResult] = useState<CanonicalizationResult | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +66,33 @@ export default function ObservationDetailPage({ params }: { params: { observatio
       setError(error instanceof Error ? error.message : "Unable to save review");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function canonicalize() {
+    setCanonicalizing(true);
+    setMessage(null);
+    try {
+      const result = await canonicalizeObservation(params.observationId);
+      setCanonicalizationResult(result);
+      setObservation((current) =>
+        current
+          ? {
+              ...current,
+              buyer_id: result.buyer_id,
+              requirement_id: result.requirement_id,
+            }
+          : current,
+      );
+      setMessage(`Canonicalization ${result.status.replaceAll("_", " ")}.`);
+      setError(null);
+      if (result.status === "created" || result.status === "matched" || result.status === "already_canonicalized") {
+        void load();
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to canonicalize observation");
+    } finally {
+      setCanonicalizing(false);
     }
   }
 
@@ -156,6 +185,39 @@ export default function ObservationDetailPage({ params }: { params: { observatio
 
       <section className="panel">
         <div className="panelHeader">
+          <h2>Canonicalization</h2>
+          <StatusBadge status={canonicalState(observation, canonicalizationResult)} />
+        </div>
+        <div className="reviewPanel">
+          <dl className="dataList compactList">
+            <Field label="Buyer ID" value={observation.buyer_id} />
+            <Field label="Requirement ID" value={observation.requirement_id} />
+            <Field label="Resolution Result" value={canonicalizationResult?.status ?? canonicalState(observation, null)} />
+            <Field
+              label="Matched Existing Buyer"
+              value={canonicalizationResult ? yesNo(canonicalizationResult.matched_existing_buyer) : null}
+            />
+            <Field label="Candidates" value={canonicalizationResult?.candidate_buyer_ids.join(", ")} />
+            <Field label="Reason" value={canonicalizationResult?.reason} />
+          </dl>
+          <div className="rowActions">
+            <button
+              disabled={!canCanonicalize(observation) || canonicalizing}
+              onClick={() => void canonicalize()}
+              type="button"
+            >
+              Create / Resolve Buyer
+            </button>
+          </div>
+          <p className="mutedText">
+            Canonicalization attaches Buyer and BuyerRequirement IDs as relationship metadata. Source evidence content
+            remains unchanged.
+          </p>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panelHeader">
           <h2>Extracted Data</h2>
         </div>
         <dl className="dataList">
@@ -213,4 +275,19 @@ function quantityLabel(observation: SourceObservation) {
 
 function contactSummary(observation: SourceObservation) {
   return [observation.contact_email, observation.contact_phone].filter(Boolean).join(" / ") || "Not recorded";
+}
+
+function canCanonicalize(observation: SourceObservation) {
+  return observation.review_status === "accepted" && observation.buyer_id === null;
+}
+
+function canonicalState(observation: SourceObservation, result: CanonicalizationResult | null) {
+  if (result?.status === "ambiguous") return "Ambiguous";
+  if (result?.status === "ineligible") return "Ineligible";
+  if (observation.buyer_id) return "Canonicalized";
+  return "Not Canonicalized";
+}
+
+function yesNo(value: boolean) {
+  return value ? "Yes" : "No";
 }

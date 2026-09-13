@@ -1,6 +1,7 @@
 import type {
   Agent,
   AgentRun,
+  CanonicalizationResult,
   ErrorEvent,
   HealthResponse,
   Overview,
@@ -219,5 +220,11 @@ export function updateObservationReview(observationId: string, payload: UpdateOb
   return request<ObservationReview>(`/api/v1/observations/${encodeURIComponent(observationId)}/review`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export function canonicalizeObservation(observationId: string) {
+  return request<CanonicalizationResult>(`/api/v1/observations/${encodeURIComponent(observationId)}/canonicalize`, {
+    method: "POST",
   });
 }
